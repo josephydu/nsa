@@ -6,9 +6,9 @@ from torch.autograd import gradcheck
 def test_compress_kv():
     # 配置测试参数
     batch_size = 2
-    seq_len = 8   # 调整为更小的测试尺寸
-    num_heads = 2
-    head_dim = 32
+    seq_len = 10  # 需要保证 (seq_len - block_size) % block_stride == 0
+    num_heads = 4
+    head_dim = 64
     block_stride = 2
     block_size = 3
     dtype = torch.bfloat16
@@ -65,10 +65,6 @@ def test_compress_kv():
     print(w_k.grad[0,:5])
     print("\nw_v梯度示例:")
     print(w_v.grad[0,:5])
-    print("\nk梯度示例:")
-    print(k.grad[0,:5])
-    print("\nv梯度示例:")
-    print(v.grad[0,:5])
 
 if __name__ == "__main__":
     test_compress_kv()
