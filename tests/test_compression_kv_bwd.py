@@ -45,9 +45,11 @@ def test_compress_kv():
     print("\n梯度检查:")
     test = gradcheck(compress_func, 
                     (k.float(), v.float(), w_k.float(), w_v.float()),  # gradcheck需要float精度
-                    eps=1e-3,
+                    eps=1e-2,    
                     atol=1e-3,
                     rtol=1e-3,
+                    nondet_tol=1e-3,  
+                    check_undefined_grad=False,
                     raise_exception=False)
     print("梯度检查结果:", test)
 

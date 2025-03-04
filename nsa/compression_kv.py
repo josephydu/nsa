@@ -108,14 +108,16 @@ def _compress_bwd(x,
                         mask=(off_acc_m[:, None] < n_ctx) & (off_k[None,:] < head_dim))
             
             # 计算权重梯度 dw += x^T * dout
-            x_trans = tl.trans(x_data.to(tl.float32))  # 转换为float32
-            dw_grad = tl.dot(x_trans, dout_f32)
+            x_f32 = x_data.to(tl.float32)
+            dout_f32 = dout_data.to(tl.float32)
+            
+            dw_grad = tl.dot(tl.trans(x_f32), dout_f32)
+            
+            mask = (off_k[:, None] < head_dim) & (off_n[None,:] < head_dim)
             
             tl.atomic_add(dw_ptr + w_off + off_k[:, None]*head_dim + off_n[None,:],
                         dw_grad,
-                        mask=(off_k[:, None] < head_dim) & 
-                             (off_n[None,:] < head_dim) &
-                             (w_off//(head_dim*head_dim) + inner_id < block_size))
+                        mask=mask)
 
 
 # k/v: [num_token, NUM_HEAD, HEAD_DIM]
