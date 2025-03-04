@@ -111,7 +111,6 @@ def _compress_bwd(x,
             x_trans = tl.trans(x_data.to(tl.float32))  # 转换为float32
             dw_grad = tl.dot(x_trans, dout_f32)
             
-            # 原子累加到权重梯度（增加边界检查）
             tl.atomic_add(dw_ptr + w_off + off_k[:, None]*head_dim + off_n[None,:],
                         dw_grad,
                         mask=(off_k[:, None] < head_dim) & 
@@ -212,6 +211,5 @@ class _compress_kv(torch.autograd.Function):
         )
 
 
-        # 转换权重梯度回原始数据类型
         return dk.to(k.dtype), dv.to(v.dtype), dw_k.to(w_k.dtype), dw_v.to(w_v.dtype), None, None, None
 compress_kv = _compress_kv.apply
