@@ -3,7 +3,7 @@ import triton
 import triton.language as tl
 
 def calc_compressed_len(x, stride, size):
-    return  (x-size) // stride
+    return  (x - size) // stride
 
 
 def get_autotune_config():
@@ -49,75 +49,64 @@ def _compress_fwd(x, w, out, cu_input_len, cu_out_len, num_heads: tl.constexpr,
         c_mask = (off_m[:, None]<out_len)
         tl.store(task_out_ptr, accumulator, mask=c_mask)
 
-@triton.autotune(
-    configs=get_autotune_config(),
-    key=['num_heads', 'head_dim', 'block_stride', 'block_size'],
-)
+
+
+
+# @triton.autotune(
+#     configs=get_autotune_config(),
+#     key=['num_heads', 'head_dim', 'block_stride', 'block_size'],
+# )
 @triton.jit
-def _compress_bwd(x,
-                w, 
-                dout, 
-                dx, 
-                dw, 
-                cu_input_len, 
-                cu_out_len,
-                num_heads: tl.constexpr,
-                head_dim: tl.constexpr,
-                block_stride: tl.constexpr,
-                block_size: tl.constexpr,
-                BLOCK_M: tl.constexpr):
-    bs_id, head_id, start_id = tl.program_id(0), tl.program_id(1), tl.program_id(2)
+def _compress_bwd(
+    x, grad_out, grad_w,
+    cu_input_len, cu_out_len,
+    num_heads: tl.constexpr,
+    head_dim: tl.constexpr,
+    block_stride: tl.constexpr,
+    block_size: tl.constexpr,
+    BLOCK_M: tl.constexpr
+):
+    bs_id, head_id, j = tl.program_id(0), tl.program_id(1), tl.program_id(2)
+    
     seq_offset = tl.load(cu_input_len + bs_id)
-    seq_upper = tl.load(cu_input_len + bs_id+1)
+    seq_upper = tl.load(cu_input_len + bs_id + 1)
     out_offset = tl.load(cu_out_len + bs_id)
-    out_upper = tl.load(cu_out_len + bs_id+1)
-    out_len = out_upper - out_offset
+    out_upper = tl.load(cu_out_len + bs_id + 1)
     n_ctx = seq_upper - seq_offset
+    out_len = out_upper - out_offset
     
     x_ptr = x + seq_offset * num_heads * head_dim + head_id * head_dim
+    grad_out_ptr = grad_out + out_offset * num_heads * head_dim + head_id * head_dim
+    grad_w_ptr = grad_w + j * head_dim * head_dim
     
-    dout_ptr = dout + out_offset * num_heads * head_dim + head_id * head_dim
-    dx_ptr = dx + seq_offset * num_heads * head_dim + head_id * head_dim
-    dw_ptr = dw + head_id * head_dim * head_dim
-    for task_id in range(start_id, (out_len + BLOCK_M - 1) // BLOCK_M, tl.num_programs(2)):
-        off_m = tl.arange(0, BLOCK_M) + task_id * BLOCK_M
-        off_n = tl.arange(0, head_dim)
-        off_k = tl.arange(0, head_dim)
+    accumulator = tl.zeros((head_dim, head_dim), dtype=tl.float32)
+    for i in range((out_len + BLOCK_M - 1) // BLOCK_M):
+        off_i = i * BLOCK_M + tl.arange(0, BLOCK_M)
+        valid_i = off_i < out_len
         
-        dout_data = tl.load(dout_ptr + off_m[:, None] * head_dim * num_heads + off_n[None, :],
-                            mask=off_m[:, None] < out_len, other=0.0) # (BLOCK_M, head_dim)
+        input_idx = off_i * block_stride + j
+        valid_input = input_idx < n_ctx
         
-        for inner_id in range(0, block_size, 1):
-            off_acc_m = off_m * block_stride + inner_id
-            w_off = inner_id * head_dim * head_dim
-            
-            x_data = tl.load(x_ptr + (off_acc_m * num_heads * head_dim)[:, None] + off_k[None, :],
-                            mask = off_acc_m[:, None] < n_ctx, other=0.0) # (BLOCK_M, head_dim)
-            
-            # 计算输入梯度 dx += dout * w^T
-            w_data = tl.load(w + w_off + off_k[:, None] * head_dim + off_n[None, :])
-            
-            #转为f32
-            dout_f32 = dout_data.to(tl.float32)
-            w_f32 = w_data.to(tl.float32)
-            dx_grad = tl.dot(dout_f32, w_f32.T)
-            
-            # 原子累加到输入梯度
-            tl.atomic_add(dx_ptr + (off_acc_m*head_dim)[:, None] + off_k[None,:], 
-                        dx_grad,
-                        mask=(off_acc_m[:, None] < n_ctx) & (off_k[None,:] < head_dim))
-            
-            # 计算权重梯度 dw += x^T * dout
-            x_f32 = x_data.to(tl.float32)
-            dout_f32 = dout_data.to(tl.float32)
-            
-            dw_grad = tl.dot(tl.trans(x_f32), dout_f32)
-            
-            mask = (off_k[:, None] < head_dim) & (off_n[None,:] < head_dim)
-            
-            tl.atomic_add(dw_ptr + w_off + off_k[:, None]*head_dim + off_n[None,:],
-                        dw_grad,
-                        mask=mask)
+        # [BLOCK_M, head_dim]
+        x_data = tl.load(
+            x_ptr + (input_idx * num_heads * head_dim)[:, None] + tl.arange(0, head_dim)[None, :],
+            mask=valid_input[:, None] & valid_i[:, None],
+            other=0.0
+        )
+        
+        # [BLOCK_M, head_dim]
+        grad_data = tl.load(
+            grad_out_ptr + (off_i * num_heads * head_dim)[:, None] + tl.arange(0, head_dim)[None, :],
+            mask=valid_i[:, None],
+            other=0.0
+        )
+        
+        accumulator += tl.dot(x_data.T, grad_data)
+    
+    off_m = tl.arange(0, head_dim)[:, None]
+    off_n = tl.arange(0, head_dim)[None, :]
+    grad_w_ptr = grad_w_ptr + off_m * head_dim + off_n
+    tl.atomic_add(grad_w_ptr, accumulator.to(tl.float32))
 
 
 # k/v: [num_token, NUM_HEAD, HEAD_DIM]
@@ -163,55 +152,43 @@ class _compress_kv(torch.autograd.Function):
         
         return compressed_k, compressed_v
     
-    
-    
+
     @staticmethod
     def backward(ctx, dck, dcv):
-        (k, v, w_k, w_v, cu_seq_len, cu_out_len, num_head_tensor, head_dim_tensor, block_stride_tensor, block_size_tensor) = ctx.saved_tensors
+        k, v, w_k, w_v, cu_seq_len, cu_out_len, num_head_tensor, head_dim_tensor, block_stride_tensor, block_size_tensor = ctx.saved_tensors
         
         NUM_HEAD = num_head_tensor.item()
         HEAD_DIM = head_dim_tensor.item()
         block_stride = block_stride_tensor.item()
         block_size = block_size_tensor.item()
         
+        # 初始化梯度（使用float32精度）
+        dw_k = torch.zeros_like(w_k, dtype=torch.float32)
+        dw_v = torch.zeros_like(w_v, dtype=torch.float32)
         
-        dk = torch.zeros_like(k, dtype=torch.float32)
-        dv = torch.zeros_like(v, dtype=torch.float32)
-        # 使用float32类型初始化权重梯度
-        dw_k  = torch.zeros_like(w_k, dtype=torch.float32)
-        dw_v  = torch.zeros_like(w_v, dtype=torch.float32)
+        # 配置并行参数
+        grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, block_size)
         
-
-        grid = ctx.grid
-
+        # 计算k的梯度
         _compress_bwd[grid](
-            k,
-            w_k,
-            dck,
-            dk,
-            dw_k,
-            cu_seq_len,
-            cu_out_len,
-            NUM_HEAD,
-            HEAD_DIM,
-            block_stride,
-            block_size
+            k, dck, dw_k,
+            cu_seq_len, cu_out_len,
+            NUM_HEAD, HEAD_DIM,
+            block_stride, block_size,
+            BLOCK_M = 32
         )
         
+        # 计算v的梯度
         _compress_bwd[grid](
-            v,
-            w_v,
-            dcv,
-            dv,
-            dw_v,
-            cu_seq_len,
-            cu_out_len,
-            NUM_HEAD,
-            HEAD_DIM,
-            block_stride,
-            block_size
+            v, dcv, dw_v,
+            cu_seq_len, cu_out_len,
+            NUM_HEAD, HEAD_DIM,
+            block_stride, block_size,
+            BLOCK_M = 32
         )
+        
+        return None, None, dw_k, dw_v, None, None, None
+    
 
 
-        return dk.to(k.dtype), dv.to(v.dtype), dw_k.to(w_k.dtype), dw_v.to(w_v.dtype), None, None, None
 compress_kv = _compress_kv.apply
