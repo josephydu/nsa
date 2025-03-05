@@ -1,5 +1,6 @@
 import torch
 from nsa.compression_kv import compress_kv, calc_compressed_len
+import triton
 
 conv1d = torch.nn.functional.conv1d
 
@@ -20,7 +21,6 @@ seq_len = torch.Tensor([0] + [seqlen] * bs)
 cu_seq_len = torch.cumsum(seq_len, dim=0).to(torch.int32).to(device)
 
 c_k, c_v =  compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)
-
 
 def compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride):
     """Torch实现的参考计算逻辑，支持自动求导"""
@@ -54,41 +54,23 @@ def compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride):
     ref_k = torch.cat(k_list, dim=0)  # [total_windows, H, d]
     return ref_k
 
-for _ in range(3):
-    compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride)
-    compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)
 
-# 理论FLOPs计算
-total_windows = sum(calc_compressed_len(int(cu_seq_len[i+1]-cu_seq_len[i]), block_stride, block_size) for i in range(bs))
-matmul_flops = 2 * block_size * head_dim * head_dim  # 每个头每个窗口的矩阵乘法FLOPs
-total_flops = total_windows * kv_num_head * matmul_flops * 2  # 乘以2因为k和v都要计算
-
-# 测试参考实现
-torch.cuda.synchronize()
-start_event = torch.cuda.Event(enable_timing=True)
-end_event = torch.cuda.Event(enable_timing=True)
-start_event.record()
-for _ in range(100):
-    ref_k = compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride)
-end_event.record()
-torch.cuda.synchronize()
-ref_time = start_event.elapsed_time(end_event) / 100  # ms per iteration
-
-# 测试CUDA实现
-torch.cuda.synchronize()
-start_event.record()
-for _ in range(100):
-    c_k, c_v = compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)
-end_event.record()
-torch.cuda.synchronize()
-cuda_time = start_event.elapsed_time(end_event) / 100  # ms per iteration
-
-print(f"\nForward Performance:")
-print(f"Reference impl: {ref_time:.3f}ms | {(total_flops/1e12)/(ref_time/1e3):.2f} TFLOPs")
-print(f"Triton impl: {cuda_time:.3f}ms | {(total_flops/1e12)/(cuda_time/1e3):.2f} TFLOPs")
-
+# 前向测试
+ref_k = compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride)
 torch.testing.assert_close(c_k, ref_k, rtol=1e-2, atol=1e-2)
 print("Forward Passed")
+
+# 计算前向FLOPs
+total_blocks = (seqlen - block_size) // block_stride * bs
+total_flops = total_blocks * kv_num_head * 2 * block_size * head_dim * head_dim  # 2*(n*m x m*p)
+perf = lambda ms: total_flops * 1e-12 / (ms * 1e-3)  # TFLOPs/s
+
+# 基准测试
+ms = triton.testing.do_bench(lambda: compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride))
+print(f"Reference compression: {perf(ms):.2f} TFLOPs/s")
+
+ms = triton.testing.do_bench(lambda: compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size))
+print(f"Triton compression: {perf(ms):.2f} TFLOPs/s")
 
 
 # test backward =========
@@ -110,38 +92,6 @@ c_loss = torch.mean((c_k - target) ** 2)
 c_loss.backward()
 c_wk_grad = w_k.grad.clone()
 
-
-total_flops_backward = total_flops * 2
-
-# 测试参考实现反向
-torch.cuda.synchronize()
-start_event.record()
-for _ in range(100):
-    # 每次前向需要重新计算，避免复用同一个计算图
-    ref_loss = torch.mean((compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride) - target) ** 2)
-    ref_loss.backward(retain_graph=True)
-    # 每次清除梯度
-    w_k.grad = None
-    k.grad = None
-end_event.record()
-torch.cuda.synchronize()
-ref_bw_time = start_event.elapsed_time(end_event) / 100
-
-# 测试CUDA实现反向
-torch.cuda.synchronize()
-start_event.record()
-for _ in range(100):
-    c_loss = torch.mean((compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)[0] - target) ** 2)
-    c_loss.backward(retain_graph=True)
-    w_k.grad = None
-    k.grad = None
-end_event.record()
-torch.cuda.synchronize()
-cuda_bw_time = start_event.elapsed_time(end_event) / 100
-
-print(f"\nBackward Performance:")
-print(f"Reference impl: {ref_bw_time:.3f}ms | {(total_flops_backward/1e12)/(ref_bw_time/1e3):.2f} TFLOPs")
-print(f"Triton impl: {cuda_bw_time:.3f}ms | {(total_flops_backward/1e12)/(cuda_bw_time/1e3):.2f} TFLOPs")
 
 print("dw_k:", c_wk_grad[0,:10])
 print("ref_wk_grad:", ref_wk_grad[0,:10])
