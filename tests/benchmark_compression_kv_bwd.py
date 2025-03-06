@@ -1,10 +1,8 @@
 import torch
 from nsa.compression_kv import compress_kv, calc_compressed_len
 
-conv1d = torch.nn.functional.conv1d
 
-
-bs, seqlen, head_dim, kv_num_head = 500, 1024, 128, 2
+bs, seqlen, head_dim, kv_num_head = 5, 1024, 128, 2
 block_size, block_stride = 64, 16
 dtype = torch.bfloat16
 device = "cuda"
