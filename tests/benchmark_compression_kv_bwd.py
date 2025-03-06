@@ -1,11 +1,10 @@
 import torch
 from nsa.compression_kv import compress_kv, calc_compressed_len
-import triton
 
 conv1d = torch.nn.functional.conv1d
 
 
-bs, seqlen, head_dim, kv_num_head = 5, 1024, 128, 2
+bs, seqlen, head_dim, kv_num_head = 500, 1024, 128, 2
 block_size, block_stride = 64, 16
 dtype = torch.bfloat16
 device = "cuda"
@@ -21,6 +20,7 @@ seq_len = torch.Tensor([0] + [seqlen] * bs)
 cu_seq_len = torch.cumsum(seq_len, dim=0).to(torch.int32).to(device)
 
 c_k, c_v =  compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)
+
 
 def compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride):
     """Torch实现的参考计算逻辑，支持自动求导"""
@@ -54,30 +54,14 @@ def compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride):
     ref_k = torch.cat(k_list, dim=0)  # [total_windows, H, d]
     return ref_k
 
-
-# 前向测试
 ref_k = compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride)
 torch.testing.assert_close(c_k, ref_k, rtol=1e-2, atol=1e-2)
 print("Forward Passed")
-
-# 计算前向FLOPs
-total_blocks = (seqlen - block_size) // block_stride * bs
-total_flops = total_blocks * kv_num_head * 2 * block_size * head_dim * head_dim  # 2*(n*m x m*p)
-perf = lambda ms: total_flops * 1e-12 / (ms * 1e-3)  # TFLOPs/s
-
-# 基准测试
-ms = triton.testing.do_bench(lambda: compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride))
-print(f"Reference compression: {perf(ms):.2f} TFLOPs/s")
-
-ms = triton.testing.do_bench(lambda: compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size))
-print(f"Triton compression: {perf(ms):.2f} TFLOPs/s")
 
 
 # test backward =========
 
 target = torch.randn_like(c_k)
-
-
 # 计算参考实现的梯度
 ref_loss = torch.mean((ref_k - target) ** 2)
 ref_loss.backward()
@@ -93,6 +77,7 @@ c_loss.backward()
 c_wk_grad = w_k.grad.clone()
 
 
+
 print("dw_k:", c_wk_grad[0,:10])
 print("ref_wk_grad:", ref_wk_grad[0,:10])
 
@@ -100,3 +85,42 @@ torch.testing.assert_close(c_wk_grad, ref_wk_grad, rtol=2e-2, atol=2e-2)
 print("Backward Passed")
 
 
+
+def calculate_tflops(bs, seqlen, block_size, block_stride, kv_num_head, head_dim):
+    num_windows_per_seq = ((seqlen - block_size) // block_stride)
+    total_matmuls = bs * num_windows_per_seq * kv_num_head
+    flops_per_matmul = 2 * block_size * (head_dim ** 2)
+    total_flops = total_matmuls * flops_per_matmul
+    return total_flops
+# 接下来测量tflops
+import triton
+total_flops = calculate_tflops(bs, seqlen, block_size, block_stride, kv_num_head, head_dim)
+
+# 预热
+print("==========================Benchmark forward start==========================")
+for _ in range(10):
+    compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)
+    compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride)
+    
+perf = (
+    lambda ms: total_flops * 1e-12 / (ms * 1e-3)
+)
+ms = triton.testing.do_bench(
+    lambda: compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)
+)
+
+
+print("compress_kv forward {} TFlops".format(perf(ms)))
+
+ms = triton.testing.do_bench(
+    lambda: compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride)
+)
+
+print("compute_reference_kv forward {} TFlops".format(perf(ms)))
+
+print("==========================Benchmark forward end==========================")
+
+
+
+# print("==========================Benchmark backward start==========================")
+# print("==========================Benchmark backward end==========================")
