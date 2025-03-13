@@ -8,7 +8,7 @@ def calc_compressed_len(x, stride, size):
 
 def get_autotune_config():
     return [
-        triton.Config({'BLOCK_M': bm}, num_warps=nw) for bm in [16, 32, 64] for nw in [4, 8, 16]
+        triton.Config({'BLOCK_M': bm}, num_warps=nw) for bm in [16, 32, 64, 128] for nw in [4, 8, 16, 32]
     ]
 
 @triton.autotune(
@@ -157,7 +157,7 @@ def _compress_bwd_dx(
             
             grad_x_ptr_j = grad_x_ptr + (input_idx * num_heads * head_dim)[:, None] + off_k[None, :]
             
-            accumulator_j = tl.dot(grad_out_data, w_data.T)
+            accumulator_j = tl.dot(grad_out_data, tl.trans(w_data))
             accumulator_j = accumulator_j.to(tl.float32)
             
             tl.atomic_add(grad_x_ptr_j, accumulator_j, mask=valid_input[:, None])
@@ -232,7 +232,7 @@ class _compress_kv(torch.autograd.Function):
             cu_seq_len, cu_out_len,
             NUM_HEAD, HEAD_DIM,
             block_stride, block_size, 
-            # BLOCK_M = 64
+            BLOCK_M = 64
         )
         
         _compress_bwd_dx[grid](
@@ -240,7 +240,7 @@ class _compress_kv(torch.autograd.Function):
             cu_seq_len, cu_out_len, 
             NUM_HEAD, HEAD_DIM,
             block_stride, block_size, 
-            # BLOCK_M = 64
+            BLOCK_M = 64
         )
         
         _compress_bwd_dw[grid](
@@ -248,7 +248,7 @@ class _compress_kv(torch.autograd.Function):
             cu_seq_len, cu_out_len,
             NUM_HEAD, HEAD_DIM,
             block_stride, block_size,
-            # BLOCK_M = 64
+            BLOCK_M = 64
         )
         
         _compress_bwd_dw[grid](
@@ -256,7 +256,7 @@ class _compress_kv(torch.autograd.Function):
             cu_seq_len, cu_out_len,
             NUM_HEAD, HEAD_DIM,
             block_stride, block_size,
-            # BLOCK_M = 64
+            BLOCK_M = 64
         )
         
         return dk, dv, dw_k, dw_v, None, None, None

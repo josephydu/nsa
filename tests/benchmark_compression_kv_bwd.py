@@ -2,6 +2,9 @@ import torch
 from nsa.compression_kv import compress_kv, calc_compressed_len, _compress_bwd_dw, _compress_bwd_dx, _compress_fwd
 import triton
 
+
+num_warm_up = 5
+
 bs, seqlen, head_dim, kv_num_head = 16, 1024 * 64, 128, 4
 block_size, block_stride = 64, 16
 dtype = torch.bfloat16
@@ -72,7 +75,7 @@ def test_forward():
         k, w_k, compressed_k, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size
     )
 
-for _ in range(10):
+for _ in range(num_warm_up):
     test_forward()
     
 perf = lambda ms: fwd_flops * 1e-12 / (ms * 1e-3)
@@ -114,7 +117,7 @@ def init_bwd_data():
     dk = torch.zeros_like(k, dtype=torch.float32)
     dv = torch.zeros_like(v, dtype=torch.float32)
         
-    grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, block_size)
+    grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, 128)
     dck = torch.zeros(out_len, NUM_HEAD, HEAD_DIM, dtype=dtype, device=k.device)
     dcv = torch.zeros(out_len, NUM_HEAD, HEAD_DIM, dtype=dtype, device=k.device)
     return dw_k, dw_v, dk, dv, dck, dcv, grid, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size
@@ -122,39 +125,6 @@ def init_bwd_data():
     
 
 dw_k, dw_v, dk, dv, dck, dcv, grid, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
-def full_backward():
-    _compress_bwd_dw[grid](
-        k, dck, dw_k,
-        cu_seq_len, cu_out_len,
-        NUM_HEAD, HEAD_DIM,
-        block_stride, block_size,
-        # BLOCK_M = 64
-    )
-    
-    # _compress_bwd_dw[grid](
-    #     v, dcv, dw_v,
-    #     cu_seq_len, cu_out_len,
-    #     NUM_HEAD, HEAD_DIM,
-    #     block_stride, block_size,
-    #     # BLOCK_M = 64
-    # )
-    _compress_bwd_dx[grid](
-        dck, w_k, dk, 
-        cu_seq_len, cu_out_len,
-        NUM_HEAD, HEAD_DIM,
-        block_stride, block_size, 
-        # BLOCK_M = 64
-    )
-    
-    # _compress_bwd_dx[grid](
-    #     dcv, w_v, dv, 
-    #     cu_seq_len, cu_out_len, 
-    #     NUM_HEAD, HEAD_DIM,
-    #     block_stride, block_size, 
-    #     # BLOCK_M = 64
-    # )
-
-
 
 def dw_backward():
     _compress_bwd_dw[grid](
@@ -172,14 +142,15 @@ def dw_backward():
     #     block_stride, block_size,
     #     # BLOCK_M = 64
     # )
-    
+
+
 def dx_backward():
     _compress_bwd_dx[grid](
         dck, w_k, dk, 
         cu_seq_len, cu_out_len,
         NUM_HEAD, HEAD_DIM,
         block_stride, block_size, 
-        # BLOCK_M = 64
+        # BLOCK_M = 16
     )
     
     # _compress_bwd_dx[grid](
@@ -189,10 +160,12 @@ def dx_backward():
     #     block_stride, block_size, 
     #     # BLOCK_M = 64
     # )
-
+def full_backward():
+    dw_backward()
+    dx_backward()
 # warm up
-for _ in range(10):
-    full_backward()
+for _ in range(num_warm_up):
+    # full_backward()
     dw_backward()
     dx_backward()
 dw_k, dw_v, dk, dv, dck, dcv, grid, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
@@ -212,8 +185,8 @@ ms_dw = triton.testing.do_bench(dw_backward)
 torch.cuda.synchronize()
 print(f"Triton Backward dw only: {perf_dw(ms_dw):.2f} TFLOPs | Time: {ms_dw:.2f}ms") 
 
-ms_total = triton.testing.do_bench(full_backward)
-torch.cuda.synchronize()
-print(f"Triton Backward total: {perf_total(ms_total):.2f} TFLOPs | Time: {ms_total:.2f}ms")
+# ms_total = triton.testing.do_bench(full_backward)
+# torch.cuda.synchronize()
+# print(f"Triton Backward total: {perf_total(ms_total):.2f} TFLOPs | Time: {ms_total:.2f}ms")
 
 print("==========================Benchmark backward end==========================")
