@@ -19,39 +19,6 @@ cu_seq_len = torch.cumsum(seq_len, dim=0).to(torch.int32).to(device)
 
 c_k, c_v =  compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)
 
-def compute_reference_kv(input_tensor: torch.Tensor, 
-                        weight: torch.Tensor,
-                        cu_seq_len: torch.Tensor,
-                        block_size: int,
-                        block_stride: int) -> torch.Tensor:
-    num_heads = input_tensor.size(1)
-    result_list = []
-    batch_size = len(cu_seq_len) - 1
-    
-    for i in range(batch_size):
-        start_idx = int(cu_seq_len[i])
-        end_idx = int(cu_seq_len[i+1])
-        seq_len = end_idx - start_idx
-        single_seq = input_tensor[start_idx:end_idx, :, :]
-        
-        num_windows = calc_compressed_len(seq_len, block_stride, block_size)
-        for w in range(num_windows):
-            w_start = w * block_stride
-            w_end = w_start + block_size
-            window = single_seq[w_start:w_end, :, :]
-            
-            head_results = []
-            for h in range(num_heads):
-                single_head = window[:, h, :]
-                single_head_flat = single_head.reshape(1, -1)
-                head_result = torch.matmul(single_head_flat, weight)
-                head_results.append(head_result)
-            
-            window_result = torch.stack(head_results, dim=1)
-            result_list.append(window_result)
-    
-    return torch.cat(result_list, dim=0)
-
 target = torch.randn_like(c_k)
 
 # test tflops 
@@ -60,7 +27,7 @@ def calculate_flops(BATCH_SIZE, SEQ_LENGTH, HEAD_DIM, KV_NUM_HEADS, BLOCK_SIZE, 
     total_out_tokens = BATCH_SIZE * compressed_len
     
     single_fwd_flops = total_out_tokens * KV_NUM_HEADS * (2 * BLOCK_SIZE * HEAD_DIM * HEAD_DIM)
-    fwd_flops = 2 * single_fwd_flops
+    fwd_flops = single_fwd_flops
     
     dw_flops = total_out_tokens * KV_NUM_HEADS * (2 * BLOCK_SIZE * HEAD_DIM * HEAD_DIM)
     dx_flops = total_out_tokens * KV_NUM_HEADS * (2 * BLOCK_SIZE * HEAD_DIM * HEAD_DIM)
@@ -97,22 +64,21 @@ def init_fwd_data():
     cu_out_len = torch.tensor(cu_out_len, device=cu_seq_len.device, dtype=torch.int32)
     
     grid = lambda args: (cu_seq_len.numel()-1, NUM_HEAD, 128)
-    return grid, compressed_k, compressed_v, cu_out_len
+    return grid, compressed_k, compressed_v, cu_out_len, NUM_HEAD, HEAD_DIM
 
-grid, compressed_k, compressed_v, cu_out_len = init_fwd_data()
+grid, compressed_k, compressed_v, cu_out_len, NUM_HEAD, HEAD_DIM = init_fwd_data()
 def test_forward():
     _compress_fwd[grid](
         k, w_k, compressed_k, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size
     )
 
 for _ in range(10):
-    compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)
-    compute_reference_kv(k, w_k, cu_seq_len, block_size, block_stride)
+    test_forward()
     
 perf = lambda ms: fwd_flops * 1e-12 / (ms * 1e-3)
 
 ms_forward_triton = triton.testing.do_bench(
-    lambda: compress_kv(k, v, w_k, w_v, cu_seq_len, block_stride, block_size)
+    lambda: test_forward()
 )
 
 print(f"Triton Forward: {perf(ms_forward_triton):.2f} TFLOPs | Time: {ms_forward_triton:.2f}ms")
@@ -162,7 +128,7 @@ def full_backward():
         cu_seq_len, cu_out_len,
         NUM_HEAD, HEAD_DIM,
         block_stride, block_size,
-        # BLOCK_M = 64
+        BLOCK_M = 64
     )
     
     # _compress_bwd_dw[grid](
@@ -177,7 +143,7 @@ def full_backward():
         cu_seq_len, cu_out_len,
         NUM_HEAD, HEAD_DIM,
         block_stride, block_size, 
-        # BLOCK_M = 64
+        BLOCK_M = 64
     )
     
     # _compress_bwd_dx[grid](
@@ -196,7 +162,7 @@ def dw_backward():
         cu_seq_len, cu_out_len,
         NUM_HEAD, HEAD_DIM,
         block_stride, block_size,
-        # BLOCK_M = 64
+        BLOCK_M = 64
     )
     
     # _compress_bwd_dw[grid](
@@ -213,7 +179,7 @@ def dx_backward():
         cu_seq_len, cu_out_len,
         NUM_HEAD, HEAD_DIM,
         block_stride, block_size, 
-        # BLOCK_M = 64
+        BLOCK_M = 64
     )
     
     # _compress_bwd_dx[grid](
