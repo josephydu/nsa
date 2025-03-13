@@ -126,7 +126,7 @@ def init_bwd_data():
 dw_k, dw_v, dk, dv, dck, dcv, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
 
 def dw_backward():
-    grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, 64)
+    grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, block_size)
     _compress_bwd_dw[grid](
         k, dck, dw_k,
         cu_seq_len, cu_out_len,
@@ -135,14 +135,6 @@ def dw_backward():
         # BLOCK_M = 64
     )
     
-    # _compress_bwd_dw[grid](
-    #     v, dcv, dw_v,
-    #     cu_seq_len, cu_out_len,
-    #     NUM_HEAD, HEAD_DIM,
-    #     block_stride, block_size,
-    #     # BLOCK_M = 64
-    # )
-
 
 def dx_backward():
     grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, block_size)
@@ -154,13 +146,6 @@ def dx_backward():
         # BLOCK_M = 16
     )
     
-    # _compress_bwd_dx[grid](
-    #     dcv, w_v, dv, 
-    #     cu_seq_len, cu_out_len, 
-    #     NUM_HEAD, HEAD_DIM,
-    #     block_stride, block_size, 
-    #     # BLOCK_M = 64
-    # )
 def full_backward():
     dw_backward()
     dx_backward()

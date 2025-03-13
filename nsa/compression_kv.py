@@ -228,11 +228,10 @@ class _compress_kv(torch.autograd.Function):
         dk = torch.zeros_like(k, dtype=torch.float32)
         dv = torch.zeros_like(v, dtype=torch.float32)
         
-        dw_grid = lambda meta: (cu_seq_len.numel() - 1, NUM_HEAD, block_size)
-        dx_grid = lambda meta: (cu_seq_len.numel() - 1, NUM_HEAD, 32)
+        grid = lambda meta: (cu_seq_len.numel() - 1, NUM_HEAD, block_size)
         
 
-        _compress_bwd_dx[dx_grid](
+        _compress_bwd_dx[grid](
             dck, w_k, dk, 
             cu_seq_len, cu_out_len,
             NUM_HEAD, HEAD_DIM,
@@ -240,7 +239,7 @@ class _compress_kv(torch.autograd.Function):
             BLOCK_M = 64
         )
         
-        _compress_bwd_dx[dx_grid](
+        _compress_bwd_dx[grid](
             dcv, w_v, dv, 
             cu_seq_len, cu_out_len, 
             NUM_HEAD, HEAD_DIM,
@@ -248,7 +247,7 @@ class _compress_kv(torch.autograd.Function):
             BLOCK_M = 64
         )
         
-        _compress_bwd_dw[dw_grid](
+        _compress_bwd_dw[grid](
             k, dck, dw_k,
             cu_seq_len, cu_out_len,
             NUM_HEAD, HEAD_DIM,
@@ -256,7 +255,7 @@ class _compress_kv(torch.autograd.Function):
             BLOCK_M = 64
         )
         
-        _compress_bwd_dw[dw_grid](
+        _compress_bwd_dw[grid](
             v, dcv, dw_v,
             cu_seq_len, cu_out_len,
             NUM_HEAD, HEAD_DIM,
