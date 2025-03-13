@@ -165,7 +165,7 @@ def full_backward():
     dx_backward()
 # warm up
 for _ in range(num_warm_up):
-    # full_backward()
+    full_backward()
     dw_backward()
     dx_backward()
 dw_k, dw_v, dk, dv, dck, dcv, grid, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
@@ -185,8 +185,8 @@ ms_dw = triton.testing.do_bench(dw_backward)
 torch.cuda.synchronize()
 print(f"Triton Backward dw only: {perf_dw(ms_dw):.2f} TFLOPs | Time: {ms_dw:.2f}ms") 
 
-# ms_total = triton.testing.do_bench(full_backward)
-# torch.cuda.synchronize()
-# print(f"Triton Backward total: {perf_total(ms_total):.2f} TFLOPs | Time: {ms_total:.2f}ms")
+ms_total = triton.testing.do_bench(full_backward)
+torch.cuda.synchronize()
+print(f"Triton Backward total: {perf_total(ms_total):.2f} TFLOPs | Time: {ms_total:.2f}ms")
 
 print("==========================Benchmark backward end==========================")

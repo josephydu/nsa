@@ -224,7 +224,7 @@ class _compress_kv(torch.autograd.Function):
         dk = torch.zeros_like(k, dtype=torch.float32)
         dv = torch.zeros_like(v, dtype=torch.float32)
         
-        grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, block_size)
+        grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, 128)
         
 
         _compress_bwd_dx[grid](
