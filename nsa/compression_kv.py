@@ -33,8 +33,8 @@ def _compress_fwd(x, w, out, cu_input_len, cu_out_len, num_heads: tl.constexpr,
     x_ptr = x+seq_offset*num_heads*head_dim + head_id*head_dim
     out_ptr = out + out_offset*num_heads*head_dim + head_id*head_dim
     
-    total_tasks = (out_len + BLOCK_M - 1) // BLOCK_M
-    for task_id in range(start_id * 4, total_tasks, tl.num_programs(2) * 4):
+    total_tasks = tl.cdiv(out_len, BLOCK_M)
+    for task_id in range(start_id, total_tasks, tl.num_programs(2)):
         # task_x_offset = task_id*BLOCK_M
         off_m = tl.arange(0, BLOCK_M) + task_id*BLOCK_M
         off_n = tl.arange(0, head_dim)
@@ -56,10 +56,10 @@ def _compress_fwd(x, w, out, cu_input_len, cu_out_len, num_heads: tl.constexpr,
 
 
 
-@triton.autotune(
-    configs=get_autotune_config(),
-    key=['num_heads', 'head_dim', 'block_stride', 'block_size'],
-)
+# @triton.autotune(
+#     configs=get_autotune_config(),
+#     key=['num_heads', 'head_dim', 'block_stride', 'block_size'],
+# )
 @triton.jit
 def _compress_bwd_dw(
     x, grad_out, grad_w,
@@ -114,10 +114,10 @@ def _compress_bwd_dw(
         
         
         
-@triton.autotune(
-    configs=get_autotune_config(),
-    key=['num_heads', 'head_dim', 'block_stride', 'block_size'],
-)        
+# @triton.autotune(
+#     configs=get_autotune_config(),
+#     key=['num_heads', 'head_dim', 'block_stride', 'block_size'],
+# )        
 @triton.jit
 def _compress_bwd_dx(
     grad_out, w, grad_x,
