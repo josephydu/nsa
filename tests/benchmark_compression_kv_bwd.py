@@ -204,13 +204,13 @@ perf_total = lambda ms: (dw_flops + dx_flops) * 1e-12 / (ms * 1e-3)
 
 torch.cuda.synchronize()
 
-ms_dw = triton.testing.do_bench(dw_backward)
-torch.cuda.synchronize()
-print(f"Triton Backward dw only: {perf_dw(ms_dw):.2f} TFLOPs | Time: {ms_dw:.2f}ms") 
-
 ms_dx = triton.testing.do_bench(dx_backward)
 torch.cuda.synchronize()
 print(f"Triton Backward dx only: {perf_dx(ms_dx):.2f} TFLOPs | Time: {ms_dx:.2f}ms")
+
+ms_dw = triton.testing.do_bench(dw_backward)
+torch.cuda.synchronize()
+print(f"Triton Backward dw only: {perf_dw(ms_dw):.2f} TFLOPs | Time: {ms_dw:.2f}ms") 
 
 ms_total = triton.testing.do_bench(full_backward)
 torch.cuda.synchronize()
