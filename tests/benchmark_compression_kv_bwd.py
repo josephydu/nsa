@@ -117,16 +117,16 @@ def init_bwd_data():
     dk = torch.zeros_like(k, dtype=torch.float32)
     dv = torch.zeros_like(v, dtype=torch.float32)
         
-    grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, 128)
     dck = torch.zeros(out_len, NUM_HEAD, HEAD_DIM, dtype=dtype, device=k.device)
     dcv = torch.zeros(out_len, NUM_HEAD, HEAD_DIM, dtype=dtype, device=k.device)
-    return dw_k, dw_v, dk, dv, dck, dcv, grid, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size
+    return dw_k, dw_v, dk, dv, dck, dcv, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size
 
     
 
-dw_k, dw_v, dk, dv, dck, dcv, grid, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
+dw_k, dw_v, dk, dv, dck, dcv, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
 
 def dw_backward():
+    grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, 64)
     _compress_bwd_dw[grid](
         k, dck, dw_k,
         cu_seq_len, cu_out_len,
@@ -145,6 +145,7 @@ def dw_backward():
 
 
 def dx_backward():
+    grid = lambda meta: (cu_seq_len.numel()-1, NUM_HEAD, block_size)
     _compress_bwd_dx[grid](
         dck, w_k, dk, 
         cu_seq_len, cu_out_len,
@@ -168,11 +169,11 @@ for _ in range(num_warm_up):
     full_backward()
     dw_backward()
     dx_backward()
-dw_k, dw_v, dk, dv, dck, dcv, grid, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
+dw_k, dw_v, dk, dv, dck, dcv, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
 perf_dw = lambda ms: dw_flops * 1e-12 / (ms * 1e-3)
-dw_k, dw_v, dk, dv, dck, dcv, grid, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
+dw_k, dw_v, dk, dv, dck, dcv, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
 perf_dx = lambda ms: dx_flops * 1e-12 / (ms * 1e-3)
-dw_k, dw_v, dk, dv, dck, dcv, grid, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
+dw_k, dw_v, dk, dv, dck, dcv, cu_seq_len, cu_out_len, NUM_HEAD, HEAD_DIM, block_stride, block_size = init_bwd_data()
 perf_total = lambda ms: (dw_flops + dx_flops) * 1e-12 / (ms * 1e-3)
 
 torch.cuda.synchronize()
