@@ -8,10 +8,10 @@ def calc_compressed_len(x, stride, size):
 
 def get_autotune_config():
     return [
-        triton.Config({'BLOCK_M': bm}, num_warps=nw, num_stages=s) 
+        triton.Config({'BLOCK_M': bm}, num_warps=nw) 
         for bm in [16, 32, 64, 128] 
         for nw in [4, 8, 16, 32]
-        for s in [2, 3, 4]
+        # for s in [2, 3, 4]
     ]
 
 @triton.autotune(
