@@ -8,7 +8,10 @@ def calc_compressed_len(x, stride, size):
 
 def get_autotune_config():
     return [
-        triton.Config({'BLOCK_M': bm}, num_warps=nw) for bm in [16, 32, 64, 128] for nw in [4, 8, 16, 32]
+        triton.Config({'BLOCK_M': bm}, num_warps=nw, num_stages=s) 
+        for bm in [16, 32, 64, 128] 
+        for nw in [4, 8, 16, 32]
+        for s in [2, 3, 4]
     ]
 
 @triton.autotune(
@@ -137,7 +140,8 @@ def _compress_bwd_dx(
     grad_x_ptr = grad_x + seq_offset * num_heads * head_dim + head_id * head_dim
     w_ptr = w
     
-    for task_id in range(start_id, (out_len + BLOCK_M - 1) // BLOCK_M, tl.num_programs(2)):
+    total_tasks = (out_len + BLOCK_M - 1) // BLOCK_M
+    for task_id in range(start_id * 4, total_tasks, tl.num_programs(2) * 4):
         off_m = tl.arange(0, BLOCK_M) + task_id * BLOCK_M
         off_n = tl.arange(0, head_dim)
         off_k = tl.arange(0, head_dim)
