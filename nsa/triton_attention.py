@@ -494,7 +494,7 @@ class _attention(torch.autograd.Function):
         PRE_BLOCK = 128
         assert N_CTX % PRE_BLOCK == 0
         pre_grid = (N_CTX // PRE_BLOCK, BATCH * N_HEAD)
-        delta = torch.empty_like(M)
+        delta = torch.zeros_like(M)
         _attn_bwd_preprocess[pre_grid](
             o, do,  #
             delta,  #
