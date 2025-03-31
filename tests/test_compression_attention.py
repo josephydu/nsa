@@ -25,9 +25,12 @@ compressor = KVCompressor(
             compress_block_stride, compress_block_size, head_dim, device, dtype
         )
 
+
 ck, cv, compress_cu_kv_len = compressor(k, v, t, num_q_head//k.shape[1])
 q = q.reshape(bs, seq_len, num_q_head, head_dim)
 
+print(f'k shape: {ck.shape},\n v shape: {cv.shape}')
+print(f'q shape: {q.shape}')
 # ref_o, ref_s = attention_ref(q, ck, cv, compress_block_stride, compress_block_size, causal=True, scale=1.0)
 # o, s = flash_attn_func(q, ck, cv, compress_block_stride, compress_block_size, None, True, 1.0)
 
