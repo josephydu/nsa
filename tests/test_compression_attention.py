@@ -49,4 +49,5 @@ print(o.isnan().any())
 # print('ref_o backward done')
 o.sum().backward()
 print('o backward done')
+print(q.grad.isnan().any())
 
