@@ -518,7 +518,7 @@ class _attention(torch.autograd.Function):
 flash_attn_func = _attention.apply
 
 def test_dq_kernel_directly():
-    B, T, H, D = 1, 512, 64, 128
+    B, T, H, D = 1, 32768, 64, 128
     torch.manual_seed(42)
     
     q = torch.randn(B, T, H, D, device='cuda')
@@ -539,8 +539,8 @@ def test_dq_kernel_directly():
     _attn_bwd_dq[grid](
         dq, q, K, V,
         do, m, D,
-        stride_tok=H*D,  # q.stride(1) = H*D
-        stride_d=1,      # q.stride(3) = 1
+        stride_tok=H*D,  
+        stride_d=1,    
         H=H,
         N_CTX=T,
         BLOCK_M2=BLOCK_M2,
