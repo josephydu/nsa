@@ -510,7 +510,7 @@ class _attention(torch.autograd.Function):
             BLK_SLICE_FACTOR=BLK_SLICE_FACTOR,  #
             HEAD_DIM=ctx.HEAD_DIM,  #
             num_warps=NUM_WARPS,  #
-            num_stages=NUM_STAGES  #
+            num_stages=NUM_STAGES,  #
             block_stride=block_stride,
             block_size=block_size,
         )
