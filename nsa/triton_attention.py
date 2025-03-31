@@ -472,6 +472,7 @@ class _attention(torch.autograd.Function):
         dq = torch.empty_like(q)
         dk = torch.empty_like(k)
         dv = torch.empty_like(v)
+        do = do.to(torch.float32)
         BATCH, N_CTX, N_HEAD = q.shape[:3]
         PRE_BLOCK = 128
         NUM_WARPS, NUM_STAGES = 4, 5
