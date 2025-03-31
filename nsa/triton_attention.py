@@ -436,9 +436,17 @@ def _attn_bwd(Q, K, V, sm_scale,  #
 class _attention(torch.autograd.Function):
     @staticmethod
     def forward(ctx, q, k, v, block_stride, block_size, causal, sm_scale):
+        print(q.shape)
+        print(k.shape)
+        print(v.shape)
+        
+        print("after transpose")
         q = q.transpose(1, 2)
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
+        print(q.shape)
+        print(k.shape)
+        print(v.shape)
 
         # shape constraints
         HEAD_DIM_Q, HEAD_DIM_K = q.shape[-1], k.shape[-1]
