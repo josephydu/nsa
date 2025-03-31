@@ -47,7 +47,7 @@ def _attn_fwd_inner(acc, l_i, m_i, q,  #
         v = tl.load(V_block_ptr)
 
         p = p.to(q.dtype)
-        tl.dot(p, v, acc)
+        acc += tl.dot(p, v)
         # update m_i and l_i
         m_i = m_ij
         V_block_ptr = tl.advance(V_block_ptr, (BLOCK_N, 0))
@@ -238,14 +238,15 @@ def _attn_bwd_dkdv(dk, dv,  #
         # Compute dV.
         ppT = pT
         ppT = ppT.to(dk.dtype)
-        tl.dot(ppT, do, dv)
+        dv += tl.dot(ppT, do)
+        
         # D (= delta) is pre-divided by ds_scale.
         Di = tl.load(D + offs_m)
         # Compute dP and dS.
         dpT = tl.dot(v, tl.trans(do)).to(tl.float32)
         dsT = pT * (dpT - Di[None, :])
         dsT = dsT.to(dk.dtype)
-        tl.dot(dsT, tl.trans(qT), dk)
+        dk += tl.dot(dsT, tl.trans(qT))
         # Increment pointers.
         curr_m += step_m
         qT_ptrs += step_m * stride_tok
@@ -264,13 +265,14 @@ def _attn_bwd_dq(dq, q, K, V,  #
                  BLOCK_N2: tl.constexpr,  #
                  HEAD_DIM: tl.constexpr,
                  # Filled in by the wrapper.
-                 start_m, start_n, num_steps,  #
+                 start_m, start_n, num_steps,
+                 compress_ratio, #
                  MASK: tl.constexpr):
     offs_m = start_m + tl.arange(0, BLOCK_M2)
     offs_n = start_n + tl.arange(0, BLOCK_N2)
     offs_k = tl.arange(0, HEAD_DIM)
-    kT_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
-    vT_ptrs = V + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
+    kT_ptrs = K + (offs_n[None, :] // compress_ratio) * stride_tok + offs_k[:, None] * stride_d
+    vT_ptrs = V + (offs_n[None, :] // compress_ratio ) * stride_tok + offs_k[:, None] * stride_d
     # D (= delta) is pre-divided by ds_scale.
     Di = tl.load(D + offs_m)
     # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.
@@ -293,7 +295,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
         ds = ds.to(q.dtype)
         # Compute dQ.
         # NOTE: We need to de-scale dq in the end, because kT was pre-scaled.
-        tl.dot(ds, tl.trans(kT), dq)
+        dq += tl.dot(ds, tl.trans(kT))
         # Increment pointers.
         curr_n += step_n
         kT_ptrs += step_n * stride_tok
@@ -516,56 +518,3 @@ class _attention(torch.autograd.Function):
 
 
 flash_attn_func = _attention.apply
-
-# class FlashAttnFunc(torch.autograd.Function):
-#     @staticmethod
-#     def forward(ctx, q, k, v, block_stride, block_size, bias=None, causal=False, softmax_scale=None):
-#         """
-#         q: (batch_size, seqlen_q, nheads, headdim)
-#         k, v: (batch_size, seqlen_k, nheads, headdim)
-#         bias: optional, shape broadcastible to (batch, nheads, seqlen_q, seqlen_k).
-#             For example, ALiBi mask for causal would have shape (1, nheads, 1, seqlen_k).
-#             ALiBi mask for non-causal would have shape (1, nheads, seqlen_q, seqlen_k)
-#         """
-#         # Make sure that the last dimension is contiguous
-#         q, k, v = [x if x.stride(-1) == 1 else x.contiguous() for x in [q, k, v]]
-#         o, lse, ctx.softmax_scale = _flash_attn_forward(
-#             q, k, v, block_stride, block_size, bias=bias, causal=causal, softmax_scale=softmax_scale
-#         )
-#         ctx.save_for_backward(q, k, v, o, lse, bias)
-#         ctx.causal = causal
-#         ctx.block_stride = block_stride
-#         ctx.block_size = block_size
-
-#         s = torch.einsum("bthd, bshd->bhts", q, k)
-#         s = torch.nn.functional.softmax(s, dim=-1)
-#         return o, s.to(torch.float32)
-
-#     @staticmethod
-#     def backward(ctx, do, s):
-#         q, k, v, o, lse, bias = ctx.saved_tensors
-#         assert not ctx.needs_input_grad[3], "FlashAttention does not support bias gradient yet"
-#         # Triton's autotune causes the Tensor._version to change, and so Pytorch autograd
-#         # does a memcpy. To avoid this we run in inference_mode, which doesn't track the version.
-#         with torch.inference_mode():
-#             dq = torch.zeros_like(q)
-#             dk = torch.empty_like(k)
-#             dv = torch.empty_like(v)
-#             _flash_attn_backward(
-#                 do,
-#                 q,
-#                 k,
-#                 v,
-#                 o,
-#                 lse,
-#                 dq,
-#                 dk,
-#                 dv,
-#                 block_stride=ctx.block_stride,
-#                 block_size=ctx.block_size,
-#                 bias=bias,
-#                 causal=ctx.causal,
-#                 softmax_scale=ctx.softmax_scale,
-#             )
-#         return dq, dk, dv, None, None, None, None, None
-
