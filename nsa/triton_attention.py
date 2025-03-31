@@ -502,20 +502,20 @@ class _attention(torch.autograd.Function):
             BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
         )
         grid = (N_CTX // BLOCK_N1, 1, BATCH * N_HEAD)
-        _attn_bwd[grid](
-            q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
-            M, delta,  #
-            q.stride(0), q.stride(1), q.stride(2), q.stride(3),  #
-            N_HEAD, N_CTX,  #
-            BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
-            BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
-            BLK_SLICE_FACTOR=BLK_SLICE_FACTOR,  #
-            HEAD_DIM=ctx.HEAD_DIM,  #
-            num_warps=NUM_WARPS,  #
-            num_stages=NUM_STAGES,  #
-            block_stride=ctx.block_stride,
-            block_size=ctx.block_size,
-        )
+        # _attn_bwd[grid](
+        #     q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
+        #     M, delta,  #
+        #     q.stride(0), q.stride(1), q.stride(2), q.stride(3),  #
+        #     N_HEAD, N_CTX,  #
+        #     BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
+        #     BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
+        #     BLK_SLICE_FACTOR=BLK_SLICE_FACTOR,  #
+        #     HEAD_DIM=ctx.HEAD_DIM,  #
+        #     num_warps=NUM_WARPS,  #
+        #     num_stages=NUM_STAGES,  #
+        #     block_stride=ctx.block_stride,
+        #     block_size=ctx.block_size,
+        # )
 
         return dq, dk, dv, None, None, None, None
 
