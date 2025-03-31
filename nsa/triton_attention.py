@@ -300,9 +300,7 @@ def _attn_bwd(Q, K, V, sm_scale,  #
               BLOCK_M2: tl.constexpr,  #
               BLOCK_N2: tl.constexpr,  #
               BLK_SLICE_FACTOR: tl.constexpr,  #
-              HEAD_DIM: tl.constexpr,
-              block_stride: tl.constexpr,
-              block_size: tl.constexpr):
+              HEAD_DIM: tl.constexpr):
     LN2: tl.constexpr = 0.6931471824645996  # = ln(2)
 
     bhid = tl.program_id(2)
@@ -401,8 +399,6 @@ def _attn_bwd(Q, K, V, sm_scale,  #
                       BLOCK_M2, MASK_BLOCK_N2, HEAD_DIM,  #
                       start_m, end_n - num_steps * MASK_BLOCK_N2, num_steps,  #
                       MASK=True,  #
-                      block_stride=block_stride,
-                      block_size=block_size
                       )
     end_n -= num_steps * MASK_BLOCK_N2
     # stage 2
@@ -414,8 +410,6 @@ def _attn_bwd(Q, K, V, sm_scale,  #
                       BLOCK_M2, BLOCK_N2, HEAD_DIM,  #
                       start_m, end_n - num_steps * BLOCK_N2, num_steps,  #
                       MASK=False, #
-                      block_stride=block_stride,
-                      block_size=block_size
                       )
     # Write back dQ.
     dq_ptrs = DQ + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d
@@ -513,8 +507,8 @@ class _attention(torch.autograd.Function):
             HEAD_DIM=ctx.HEAD_DIM,  #
             num_warps=NUM_WARPS,  #
             num_stages=NUM_STAGES,  #
-            block_stride=16,
-            block_size=64,
+            # block_stride=16,
+            # block_size=64,
         )
 
         return dq, dk, dv, None, None, None, None
