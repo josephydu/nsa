@@ -334,8 +334,8 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     dk = tl.zeros([BLOCK_N1, HEAD_DIM], dtype=tl.float32)
 
     # load K and V: they stay in SRAM throughout the inner loop.
-    k = tl.load(K + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d)
-    v = tl.load(V + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d)
+    k = tl.load(K + (offs_n[:, None] // block_stride) * stride_tok + offs_k[None, :] * stride_d)
+    v = tl.load(V + (offs_n[:, None] // block_stride) * stride_tok + offs_k[None, :] * stride_d)
 
     num_steps = BLOCK_N1 // MASK_BLOCK_M1
 
