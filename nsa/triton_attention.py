@@ -226,7 +226,7 @@ def _attn_bwd_dkdv(dk, dv,  #
         # D (= delta) is pre-divided by ds_scale.
         Di = tl.load(D + offs_m)
         # Compute dP and dS.
-        dpT = tl.dot(v, tl.trans(do)).to(tl.float32)
+        dpT = tl.dot(v.to(tl.float32), tl.trans(do)).to(tl.float32)
         dsT = pT * (dpT - Di[None, :])
         dsT = dsT.to(dk.dtype)
         dk += tl.dot(dsT, tl.trans(qT))
