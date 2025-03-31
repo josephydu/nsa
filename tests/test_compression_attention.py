@@ -43,8 +43,8 @@ print(o.isnan().any())
 # torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
 # torch.testing.assert_close(s, ref_s, rtol=1e-2, atol=1e-2)
 
-ref_o.sum().backward()
-print('ref_o backward done')
+# ref_o.sum().backward()
+# print('ref_o backward done')
 o.sum().backward()
 print('o backward done')
 
