@@ -480,6 +480,11 @@ class _attention(torch.autograd.Function):
         print(k.stride())
         print(v.stride())
         print(do.stride())
+        
+        print(q.shape)
+        print(k.shape)
+        print(v.shape)
+        print(do.shape)
         assert do.is_contiguous()
         assert q.stride() == k.stride() == v.stride() == o.stride() == do.stride()
         dq = torch.empty_like(q)
