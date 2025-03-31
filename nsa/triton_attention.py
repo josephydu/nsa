@@ -251,7 +251,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
                  start_m, start_n, num_steps,  #
                  MASK: tl.constexpr,
                 #  block_stride: tl.constexpr,
-                 block_size: tl.constexpr
+                #  block_size: tl.constexpr
                  ):
     offs_m = start_m + tl.arange(0, BLOCK_M2)
     offs_n = start_n + tl.arange(0, BLOCK_N2)
