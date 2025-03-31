@@ -513,8 +513,8 @@ class _attention(torch.autograd.Function):
             HEAD_DIM=ctx.HEAD_DIM,  #
             num_warps=NUM_WARPS,  #
             num_stages=NUM_STAGES,  #
-            block_stride=ctx.block_stride,
-            block_size=ctx.block_size,
+            block_stride=16,
+            block_size=64,
         )
 
         return dq, dk, dv, None, None, None, None
