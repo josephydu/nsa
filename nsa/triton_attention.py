@@ -255,8 +255,8 @@ def _attn_bwd_dq(dq, q, K, V,  #
     offs_m = start_m + tl.arange(0, BLOCK_M2)
     offs_n = start_n + tl.arange(0, BLOCK_N2)
     offs_k = tl.arange(0, HEAD_DIM)
-    kT_ptrs = K + (offs_n[None, :] // block_stride) * stride_tok + offs_k[:, None] * stride_d
-    vT_ptrs = V + (offs_n[None, :] // block_stride) * stride_tok + offs_k[:, None] * stride_d
+    kT_ptrs = K + (offs_n[None, :]) * stride_tok + offs_k[:, None] * stride_d
+    vT_ptrs = V + (offs_n[None, :]) * stride_tok + offs_k[:, None] * stride_d
     # D (= delta) is pre-divided by ds_scale.
     Di = tl.load(D + offs_m)
     # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.

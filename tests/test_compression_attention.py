@@ -44,6 +44,6 @@ print(o.isnan().any())
 
 # ref_o.sum().backward()
 # print('ref_o backward done')
-o.sum().backward()
+# o.sum().backward()
 print('o backward done')
 
