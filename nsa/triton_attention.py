@@ -271,7 +271,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
         # Autoregressive masking.
         if MASK:
             offs_n = curr_n + tl.arange(0, BLOCK_N2)
-            mask = (offs_m[:, None] >= (offs_n[None, :])*block_stride+block_size)
+            mask = (offs_m[:, None] >= (offs_n[None, :]))
             p = tl.where(mask, p, 0.0)
         # Compute dP and dS.
         dp = tl.dot(do, vT.to(tl.float32)).to(tl.float32)
