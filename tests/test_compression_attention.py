@@ -38,7 +38,7 @@ print(f'q shape: {q.shape}')
 # ref_o, ref_s = attention_ref(q, ck, cv, compress_block_stride, compress_block_size, causal=True, scale=None)
 o, s = flash_attn_func(q, ck, cv, compress_block_stride, compress_block_size, True, None)
 
-print(ref_o.isnan().any())
+# print(ref_o.isnan().any())
 print(o.isnan().any())
 # #import pdb; pdb.set_trace()
 
