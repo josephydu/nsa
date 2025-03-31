@@ -491,7 +491,7 @@ class _attention(torch.autograd.Function):
             BATCH, N_HEAD, N_CTX,  #
             BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
         )
-        # grid = (N_CTX // BLOCK_N1, 1, BATCH * N_HEAD)
+        grid = (N_CTX // BLOCK_N1, 1, BATCH * N_HEAD)
         # _attn_bwd[grid](
         #     q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
         #     M, delta,  #
