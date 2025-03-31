@@ -485,25 +485,25 @@ class _attention(torch.autograd.Function):
         assert N_CTX % PRE_BLOCK == 0
         pre_grid = (N_CTX // PRE_BLOCK, BATCH * N_HEAD)
         delta = torch.empty_like(M)
-        _attn_bwd_preprocess[pre_grid](
-            o, do,  #
-            delta,  #
-            BATCH, N_HEAD, N_CTX,  #
-            BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
-        )
-        grid = (N_CTX // BLOCK_N1, 1, BATCH * N_HEAD)
-        _attn_bwd[grid](
-            q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
-            M, delta,  #
-            q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
-            N_HEAD, N_CTX,  #
-            BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
-            BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
-            BLK_SLICE_FACTOR=BLK_SLICE_FACTOR,  #
-            HEAD_DIM=ctx.HEAD_DIM,  #
-            num_warps=NUM_WARPS,  #
-            num_stages=NUM_STAGES  #
-        )
+        # _attn_bwd_preprocess[pre_grid](
+        #     o, do,  #
+        #     delta,  #
+        #     BATCH, N_HEAD, N_CTX,  #
+        #     BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
+        # )
+        # grid = (N_CTX // BLOCK_N1, 1, BATCH * N_HEAD)
+        # _attn_bwd[grid](
+        #     q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
+        #     M, delta,  #
+        #     q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
+        #     N_HEAD, N_CTX,  #
+        #     BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
+        #     BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
+        #     BLK_SLICE_FACTOR=BLK_SLICE_FACTOR,  #
+        #     HEAD_DIM=ctx.HEAD_DIM,  #
+        #     num_warps=NUM_WARPS,  #
+        #     num_stages=NUM_STAGES  #
+        # )
 
         return dq, dk, dv, None, None, None, None
 
