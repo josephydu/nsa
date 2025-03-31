@@ -274,7 +274,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
             mask = (offs_m[:, None] >= (offs_n[None, :])*block_stride+block_size)
             p = tl.where(mask, p, 0.0)
         # Compute dP and dS.
-        dp = tl.dot(do, vT).to(tl.float32)
+        dp = tl.dot(do.to(tl.float32), vT.to(tl.float32))
         ds = p * (dp - Di[:, None])
         ds = ds.to(q.dtype)
         # Compute dQ.
