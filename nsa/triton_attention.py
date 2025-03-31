@@ -271,7 +271,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
         # Autoregressive masking.
         if MASK:
             offs_n = curr_n + tl.arange(0, BLOCK_N2)
-            mask = (offs_m[:, None] >= (offs_n[None, :])*block_stride+block_size)
+            mask = (offs_m[:, None] >= (offs_n[None, :] * block_stride) + block_size)
             p = tl.where(mask, p, 0.0)
         # Compute dP and dS.
         dp = tl.dot(do, vT.to(tl.float32)).to(tl.float32)
@@ -505,7 +505,7 @@ class _attention(torch.autograd.Function):
         _attn_bwd[grid](
             q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
             M, delta,  #
-            q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
+            q.stride(0), q.stride(1), q.stride(2), q.stride(3),  #
             N_HEAD, N_CTX,  #
             BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
             BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
