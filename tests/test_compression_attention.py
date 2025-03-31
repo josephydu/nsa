@@ -33,13 +33,13 @@ q = q.reshape(bs, seq_len, num_q_head, head_dim)
 # o, s = flash_attn_func(q, ck, cv, compress_block_stride, compress_block_size, None, True, 1.0)
 
 
-#ref_o, ref_s = attention_ref(q, ck, cv, compress_block_stride, compress_block_size, causal=True, scale=None)
+ref_o, ref_s = attention_ref(q, ck, cv, compress_block_stride, compress_block_size, causal=True, scale=None)
 o, s = flash_attn_func(q, ck, cv, compress_block_stride, compress_block_size, True, None)
 
 # print(ref_o.isnan().any())
 # print(o.isnan().sum())
 # #import pdb; pdb.set_trace()
 
-# torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
-# torch.testing.assert_close(s, ref_s, rtol=1e-2, atol=1e-2)
+torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
+torch.testing.assert_close(s, ref_s, rtol=1e-2, atol=1e-2)
 
