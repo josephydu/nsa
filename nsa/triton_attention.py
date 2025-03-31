@@ -525,7 +525,7 @@ class _attention(torch.autograd.Function):
             num_stages=NUM_STAGES  #
         )
 
-        return dq, dk, dv, None, None
+        return dq, dk, dv, None, None, None, None
 
 
 flash_attn_func = _attention.apply
