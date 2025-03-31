@@ -472,7 +472,7 @@ class _attention(torch.autograd.Function):
         return o, s.to(torch.float32)
 
     @staticmethod
-    def backward(ctx, do):
+    def backward(ctx, do, ds):
         q, k, v, o, M = ctx.saved_tensors
         assert do.is_contiguous()
         assert q.stride() == k.stride() == v.stride() == o.stride() == do.stride()
