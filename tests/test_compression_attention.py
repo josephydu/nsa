@@ -35,8 +35,8 @@ print(f'q shape: {q.shape}')
 # o, s = flash_attn_func(q, ck, cv, compress_block_stride, compress_block_size, None, True, 1.0)
 
 
-# ref_o, ref_s = attention_ref(q, ck, cv, compress_block_stride, compress_block_size, causal=True, scale=None)
 o, s = flash_attn_func(q, ck, cv, compress_block_stride, compress_block_size, True, None)
+ref_o, ref_s = attention_ref(q, ck, cv, compress_block_stride, compress_block_size, causal=True, scale=None)
 
 # print(ref_o.isnan().any())
 print(o.isnan().any())
