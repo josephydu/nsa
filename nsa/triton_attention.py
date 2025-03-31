@@ -229,7 +229,7 @@ def _attn_bwd_dkdv(dk, dv,  #
         dpT = tl.dot(v.to(tl.float32), tl.trans(do))
         dsT = pT * (dpT - Di[None, :])
         dsT = dsT.to(dk.dtype)
-        dk += tl.dot(dsT, tl.trans(qT))
+        dk += tl.dot(dsT, tl.trans(qT).to(dsT.dtype))
         # Increment pointers.
         curr_m += step_m
         qT_ptrs += step_m * stride_tok
