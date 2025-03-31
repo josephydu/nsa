@@ -442,8 +442,8 @@ class _attention(torch.autograd.Function):
 
         grid = lambda args: (triton.cdiv(q.shape[1], args["BLOCK_M"]), q.shape[0] * q.shape[2], 1)
         ctx.grid = grid
-        ctx.block_stride = block_stride
-        ctx.block_size = block_size
+        # ctx.block_stride = block_stride
+        # ctx.block_size = block_size
         _attn_fwd[grid](
             q, k, v, sm_scale, M, o,  #
             q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
