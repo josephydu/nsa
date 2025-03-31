@@ -47,7 +47,7 @@ def _attn_fwd_inner(acc, l_i, m_i, q,  #
         v = tl.load(V_block_ptr)
 
         p = p.to(q.dtype)
-        acc += tl.dot(p, v)
+        tl.dot(p, v, acc)
         # update m_i and l_i
         m_i = m_ij
         V_block_ptr = tl.advance(V_block_ptr, (BLOCK_N, 0))
@@ -238,15 +238,14 @@ def _attn_bwd_dkdv(dk, dv,  #
         # Compute dV.
         ppT = pT
         ppT = ppT.to(dk.dtype)
-        dv += tl.dot(ppT, do)
-        
+        tl.dot(ppT, do, dv)
         # D (= delta) is pre-divided by ds_scale.
         Di = tl.load(D + offs_m)
         # Compute dP and dS.
         dpT = tl.dot(v, tl.trans(do)).to(tl.float32)
         dsT = pT * (dpT - Di[None, :])
         dsT = dsT.to(dk.dtype)
-        dk += tl.dot(dsT, tl.trans(qT))
+        tl.dot(dsT, tl.trans(qT), dk)
         # Increment pointers.
         curr_m += step_m
         qT_ptrs += step_m * stride_tok
@@ -265,13 +264,13 @@ def _attn_bwd_dq(dq, q, K, V,  #
                  BLOCK_N2: tl.constexpr,  #
                  HEAD_DIM: tl.constexpr,
                  # Filled in by the wrapper.
-                 start_m, start_n, num_steps, #
+                 start_m, start_n, num_steps,  #
                  MASK: tl.constexpr):
     offs_m = start_m + tl.arange(0, BLOCK_M2)
     offs_n = start_n + tl.arange(0, BLOCK_N2)
     offs_k = tl.arange(0, HEAD_DIM)
-    kT_ptrs = K + (offs_n[:, None] * stride_tok) + (offs_k[None, :] * stride_d)
-    vT_ptrs = V + (offs_n[:, None] * stride_tok) + (offs_k[None, :] * stride_d)
+    kT_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
+    vT_ptrs = V + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     # D (= delta) is pre-divided by ds_scale.
     Di = tl.load(D + offs_m)
     # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.
@@ -435,17 +434,9 @@ def _attn_bwd(Q, K, V, sm_scale,  #
 class _attention(torch.autograd.Function):
     @staticmethod
     def forward(ctx, q, k, v, block_stride, block_size, causal, sm_scale):
-        print(q.shape)
-        print(k.shape)
-        print(v.shape)
-        
-        print("after transpose")
         q = q.transpose(1, 2)
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
-        print(q.shape)
-        print(k.shape)
-        print(v.shape)
 
         # shape constraints
         HEAD_DIM_Q, HEAD_DIM_K = q.shape[-1], k.shape[-1]
@@ -489,7 +480,7 @@ class _attention(torch.autograd.Function):
         dq = torch.empty_like(q)
         dk = torch.empty_like(k)
         dv = torch.empty_like(v)
-        BATCH, N_CTX, N_HEAD = q.shape[:3]
+        BATCH, N_HEAD, N_CTX = q.shape[:3]
         PRE_BLOCK = 128
         NUM_WARPS, NUM_STAGES = 4, 5
         BLOCK_M1, BLOCK_N1, BLOCK_M2, BLOCK_N2 = 32, 128, 128, 32
@@ -525,8 +516,6 @@ class _attention(torch.autograd.Function):
 
 
 flash_attn_func = _attention.apply
-
-
 
 def test_dq_kernel_directly():
     B, T, H, D = 1, 512, 64, 128
