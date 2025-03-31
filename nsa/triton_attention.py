@@ -428,6 +428,9 @@ class _attention(torch.autograd.Function):
         # k = k.transpose(1, 2)
         # v = v.transpose(1, 2)
         # B, T, H, D
+        q = q.contiguous()
+        k = k.contiguous()
+        v = v.contiguous()
 
         # shape constraints
         HEAD_DIM_Q, HEAD_DIM_K = q.shape[-1], k.shape[-1]
