@@ -26,7 +26,8 @@ compressor = KVCompressor(
         )
 
 ck, cv, compress_cu_kv_len = compressor(k, v, t, num_q_head//k.shape[1])
-
+ck = ck.contiguous()
+cv = cv.contiguous()
 q = q.reshape(bs, seq_len, num_q_head, head_dim)
 
 # ref_o, ref_s = attention_ref(q, ck, cv, compress_block_stride, compress_block_size, causal=True, scale=1.0)
