@@ -113,17 +113,21 @@ def test_dq_kernel_directly():
     BLOCK_M2, BLOCK_N2 = 128, 32
     num_steps = T // BLOCK_N2
     
+    HEAD_DIM = 128  # Should be fixed value from D dimension
+    BLOCK_M2, BLOCK_N2 = 128, 32
+    num_steps = T // BLOCK_N2
+    
     grid = (triton.cdiv(T, BLOCK_M2), B*H)
     _attn_bwd_dq[grid](
         dq, q, K, V,
-        do, m, D,
+        do, m, D,  # D here is the delta tensor
         stride_tok=H*D,  
         stride_d=1,    
         H=H,
         N_CTX=T,
         BLOCK_M2=BLOCK_M2,
         BLOCK_N2=BLOCK_N2,
-        HEAD_DIM=D,
+        HEAD_DIM=HEAD_DIM,  # Use the fixed value
         start_m=0,
         start_n=0,
         num_steps=num_steps,
@@ -132,13 +136,13 @@ def test_dq_kernel_directly():
     
     # 验证结果
     print("\nDirect DQ Kernel Test:")
-    print(f"Output shape: {dq.shape}")  # 应保持 [1,512,64,128]
+    print(f"Output shape: {dq.shape}")  # [1,32768,64,128]
     print(f"Max value: {dq.max().item():.4f}")
     print(f"Min value: {dq.min().item():.4f}")
     print(f"Mean absolute: {torch.abs(dq).mean().item():.6f}")
     
     # 检查内存布局
-    assert dq.stride() == (512*64*128, 64*128, 128, 1), "Stride mismatch!"
+    assert dq.stride() == (32768*64*128, 64*128, 128, 1), "Stride mismatch!"
     
     return dq
 
