@@ -270,8 +270,8 @@ def _attn_bwd_dq(dq, q, K, V,  #
     offs_m = start_m + tl.arange(0, BLOCK_M2)
     offs_n = start_n + tl.arange(0, BLOCK_N2)
     offs_k = tl.arange(0, HEAD_DIM)
-    kT_ptrs = K + (offs_n[None, :]) * stride_tok + offs_k[:, None] * stride_d
-    vT_ptrs = V + (offs_n[None, :] ) * stride_tok + offs_k[:, None] * stride_d
+    kT_ptrs = K + (offs_n[:, None] * stride_tok) + (offs_k[None, :] * stride_d)
+    vT_ptrs = V + (offs_n[:, None] * stride_tok) + (offs_k[None, :] * stride_d)
     # D (= delta) is pre-divided by ds_scale.
     Di = tl.load(D + offs_m)
     # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.
@@ -489,7 +489,7 @@ class _attention(torch.autograd.Function):
         dq = torch.empty_like(q)
         dk = torch.empty_like(k)
         dv = torch.empty_like(v)
-        BATCH, N_HEAD, N_CTX = q.shape[:3]
+        BATCH, N_CTX, N_HEAD = q.shape[:3]
         PRE_BLOCK = 128
         NUM_WARPS, NUM_STAGES = 4, 5
         BLOCK_M1, BLOCK_N1, BLOCK_M2, BLOCK_N2 = 32, 128, 128, 32
@@ -525,3 +525,56 @@ class _attention(torch.autograd.Function):
 
 
 flash_attn_func = _attention.apply
+
+
+
+def test_dq_kernel_directly():
+    B, T, H, D = 1, 512, 64, 128
+    torch.manual_seed(42)
+    
+    q = torch.randn(B, T, H, D, device='cuda')
+    K = torch.randn(B, T, H, D, device='cuda')
+    V = torch.randn(B, T, H, D, device='cuda')
+    do = torch.randn(B, T, H, D, device='cuda')
+    
+    m = torch.randn(B, H, T, device='cuda') 
+    D = torch.randn(B, H, T, device='cuda') 
+    
+    dq = torch.zeros_like(q)
+    
+    HEAD_DIM = D
+    BLOCK_M2, BLOCK_N2 = 128, 32
+    num_steps = T // BLOCK_N2
+    
+    grid = (triton.cdiv(T, BLOCK_M2), B*H)
+    _attn_bwd_dq[grid](
+        dq, q, K, V,
+        do, m, D,
+        stride_tok=H*D,  # q.stride(1) = H*D
+        stride_d=1,      # q.stride(3) = 1
+        H=H,
+        N_CTX=T,
+        BLOCK_M2=BLOCK_M2,
+        BLOCK_N2=BLOCK_N2,
+        HEAD_DIM=D,
+        start_m=0,
+        start_n=0,
+        num_steps=num_steps,
+        MASK=False
+    )
+    
+    # 验证结果
+    print("\nDirect DQ Kernel Test:")
+    print(f"Output shape: {dq.shape}")  # 应保持 [1,512,64,128]
+    print(f"Max value: {dq.max().item():.4f}")
+    print(f"Min value: {dq.min().item():.4f}")
+    print(f"Mean absolute: {torch.abs(dq).mean().item():.6f}")
+    
+    # 检查内存布局
+    assert dq.stride() == (512*64*128, 64*128, 128, 1), "Stride mismatch!"
+    
+    return dq
+
+if __name__ == "__main__":
+    dq = test_dq_kernel_directly()
+    print(dq)
