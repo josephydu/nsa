@@ -485,12 +485,12 @@ class _attention(torch.autograd.Function):
         assert N_CTX % PRE_BLOCK == 0
         pre_grid = (N_CTX // PRE_BLOCK, BATCH * N_HEAD)
         delta = torch.empty_like(M)
-        # _attn_bwd_preprocess[pre_grid](
-        #     o, do,  #
-        #     delta,  #
-        #     BATCH, N_HEAD, N_CTX,  #
-        #     BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
-        # )
+        _attn_bwd_preprocess[pre_grid](
+            o, do,  #
+            delta,  #
+            BATCH, N_HEAD, N_CTX,  #
+            BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
+        )
         # grid = (N_CTX // BLOCK_N1, 1, BATCH * N_HEAD)
         # _attn_bwd[grid](
         #     q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
