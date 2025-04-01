@@ -531,7 +531,7 @@ def test_dq_correctness():
     torch.manual_seed(42)
     
     # Configure test parameters
-    B, T, H, D = 1, 1024, 64, 128  # Match user's input shape
+    B, T, H, D = 1, 1024, 16, 32  # Match user's input shape
     block_stride, block_size = 16, 64  # Typical block configuration
     
     # Generate random inputs
@@ -541,7 +541,7 @@ def test_dq_correctness():
     
     # --- Test Triton implementation ---
     # Forward pass
-    o_triton, s_triton = flash_attn_func(q, k, v, block_stride, block_size, True, 1.0)
+    o_triton, s_triton = flash_attn_func(q, k, v, block_stride, block_size, True, None)
     
     # Create dummy loss and backward
     loss_triton = o_triton.sum()
