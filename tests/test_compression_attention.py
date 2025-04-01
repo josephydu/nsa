@@ -75,8 +75,9 @@ v.grad = None
 loss = (o*o).sum()
 loss.backward()
 
-print(q.grad[:10])
-print(q_ref.grad[:10])
+print(q.grad.shape)
+# print(q.grad[:2])
+# print(q_ref.grad[:2])
 
 
 # torch.testing.assert_close(s, ref_s, rtol=1e-2, atol=1e-2)
