@@ -394,7 +394,7 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     num_steps = BLOCK_M2 // MASK_BLOCK_N2
     dq = _attn_bwd_dq(dq, q, K, V,  #
                       do, m, D,  #
-                      stride_tok, stride_d,  #
+                      stride_h, stride_d,  #
                       H, Q_CTX,  #
                       BLOCK_M2, MASK_BLOCK_N2, HEAD_DIM,  #
                       start_m, end_n - num_steps * MASK_BLOCK_N2, num_steps,  #
@@ -405,7 +405,7 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     num_steps = end_n // BLOCK_N2
     dq = _attn_bwd_dq(dq, q, K, V,  #
                       do, m, D,  #
-                      stride_tok, stride_d,  #
+                      stride_h, stride_d,  #
                       H, Q_CTX,  #
                       BLOCK_M2, BLOCK_N2, HEAD_DIM,  #
                       start_m, end_n - num_steps * BLOCK_N2, num_steps,  #
