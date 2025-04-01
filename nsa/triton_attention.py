@@ -166,26 +166,22 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
 
 
 @triton.jit
-def _attn_bwd_preprocess(O, DO, Delta,  #
+def _attn_bwd_preprocess(O, DO,  #
+                         Delta,  #
                          Z, H, N_CTX,  #
-                         stride_oz, stride_oh, stride_om, stride_on,  # Add proper strides
                          BLOCK_M: tl.constexpr, HEAD_DIM: tl.constexpr  #
                          ):
     off_m = tl.program_id(0) * BLOCK_M + tl.arange(0, BLOCK_M)
     off_z = tl.program_id(1)
     off_h = tl.program_id(2)
     off_n = tl.arange(0, HEAD_DIM)
-    
-    o_base = off_z * stride_oz + off_h * stride_oh
-    o_offset = o_base + off_m[:, None] * stride_om + off_n[None, :] * stride_on
-    
-    o = tl.load(O + o_offset)
-    do = tl.load(DO + o_offset)
-    
+    # load
+    o = tl.load(O + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :])
+    do = tl.load(O + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :])
+    #do = tl.load(DO + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :]).to(tl.float32)
     delta = tl.sum(o * do, axis=1)
-    
-    delta_offset = off_z * N_CTX * H + off_m * H + off_h
-    tl.store(Delta + delta_offset, delta)
+    # write-back
+    tl.store(Delta + off_z * N_CTX * H + off_h + off_m * H, delta)
 
 
 # The main inner-loop logic for computing dK and dV.
@@ -254,38 +250,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
                  # Filled in by the wrapper.
                  start_m, start_n, num_steps,  #
                  MASK: tl.constexpr):
-    offs_m = start_m + tl.arange(0, BLOCK_M2)
-    offs_n = start_n + tl.arange(0, BLOCK_N2)
-    offs_k = tl.arange(0, HEAD_DIM)
-    kT_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
-    vT_ptrs = V + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
-    # D (= delta) is pre-divided by ds_scale.
-    Di = tl.load(D + offs_m)
-    # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.
-    tl.static_assert(BLOCK_M2 % BLOCK_N2 == 0)
-    curr_n = start_n
-    step_n = BLOCK_N2
-    for blk_idx in range(num_steps):
-        kT = tl.load(kT_ptrs)
-        vT = tl.load(vT_ptrs)
-        qk = tl.dot(q, kT)
-        p = tl.math.exp2(qk - m)
-        # Autoregressive masking.
-        if MASK:
-            offs_n = curr_n + tl.arange(0, BLOCK_N2)
-            mask = (offs_m[:, None] >= offs_n[None, :])
-            p = tl.where(mask, p, 0.0)
-        # Compute dP and dS.
-        dp = tl.dot(do, vT).to(tl.float32)
-        ds = p * (dp - Di[:, None])
-        ds = ds.to(q.dtype)
-        # Compute dQ.
-        # NOTE: We need to de-scale dq in the end, because kT was pre-scaled.
-        dq += tl.dot(ds, tl.trans(kT))
-        # Increment pointers.
-        curr_n += step_n
-        kT_ptrs += step_n * stride_tok
-        vT_ptrs += step_n * stride_tok
+
     return dq
 
 
@@ -308,8 +273,8 @@ def _attn_bwd(Q, K, V, sm_scale,  #
 
     bid = tl.program_id(1)
     hid = tl.program_id(2)
-    off_chz = (bid *H+hid).to(tl.int64)
-    adj = (stride_z * bid + stride_h * hid).to(tl.int64)
+    off_chz = (bid * Q_CTX*H+hid).to(tl.int64)
+    adj = (stride_h * hid + stride_z * bid).to(tl.int64)
     pid = tl.program_id(0)
 
     # offset pointers for batch/head
@@ -491,15 +456,14 @@ class _attention(torch.autograd.Function):
             o, do,  #
             delta,  #
             BATCH, Q_HEAD, Q_CTX,  #
-            o.stride(0), o.stride(2), o.stride(1), o.stride(3),  
             BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
         )
         grid = (Q_CTX // BLOCK_N1, BATCH, Q_HEAD)
         _attn_bwd[grid](
             q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
             M, delta,  #
-            q.stride(0), q.stride(2), q.stride(1), q.stride(3), 
-            k.stride(0), k.stride(2), k.stride(1), k.stride(3), 
+            q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
+            k.stride(0), k.stride(2), k.stride(1), k.stride(3), #
             Q_HEAD, Q_CTX, KV_CTX, #
             BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
             BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
