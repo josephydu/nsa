@@ -493,8 +493,9 @@ class _attention(torch.autograd.Function):
         _attn_bwd[grid](
             q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
             M, delta,  #
-            q.stride(0), q.stride(1), q.stride(2), q.stride(3),  #
-            k.stride(0), k.stride(1), k.stride(2), k.stride(3), #
+            # 调整stride顺序以匹配 (bs, seq_len, num_head, head_dim)
+            q.stride(0), q.stride(2), q.stride(1), q.stride(3), 
+            k.stride(0), k.stride(2), k.stride(1), k.stride(3), 
             Q_HEAD, Q_CTX, KV_CTX, #
             BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
             BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
