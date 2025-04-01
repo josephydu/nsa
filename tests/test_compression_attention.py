@@ -62,15 +62,6 @@ k_ref_t = k_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 v_ref_t = v_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 
 
-
-o, s = flash_attn_func(q_t, k_t, v_t, compress_block_stride, compress_block_size, False, None)
-q.grad = None
-k.grad = None
-v.grad = None
-
-loss = (o*o).sum()
-loss.backward()
-
 ref_o, ref_s = attention_ref(q_ref_t, k_ref_t, v_ref_t, compress_block_stride, compress_block_size, causal=False, scale=None)
 
 q_ref.grad = None
@@ -82,6 +73,14 @@ ref_loss.backward()
 
 
 
+o, s = flash_attn_func(q_t, k_t, v_t, compress_block_stride, compress_block_size, False, None)
+torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
+q.grad = None
+k.grad = None
+v.grad = None
+
+loss = (o*o).sum()
+loss.backward()
 
 # print(q.grad.shape)
 print(q.grad[:2])
