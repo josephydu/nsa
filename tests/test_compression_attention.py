@@ -83,8 +83,8 @@ loss = (o*o).sum()
 loss.backward()
 
 # print(q.grad.shape)
-print(f'q.grad{q.grad[0][0][:10]}')
-print(f'q_ref.grad{q_ref.grad[0][0][:10]}')
+print(f'q.gra:{q.grad[0][0][:10]}')
+print(f'q_ref.grad:{q_ref.grad[0][0][:10]}')
 
 
 # torch.testing.assert_close(s, ref_s, rtol=1e-2, atol=1e-2)
