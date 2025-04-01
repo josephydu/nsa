@@ -256,7 +256,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
     kT_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     vT_ptrs = V + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     # D (= delta) is pre-divided by ds_scale.
-    Di = tl.load(D + offs_m)
+    Di = tl.load(D + offs_m*H)
     # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.
     tl.static_assert(BLOCK_M2 % BLOCK_N2 == 0)
     curr_n = start_n
@@ -493,8 +493,8 @@ class _attention(torch.autograd.Function):
         _attn_bwd[grid](
             q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
             M, delta,  #
-            q.stride(0), q.stride(1), q.stride(2), q.stride(3),  #
-            k.stride(0), k.stride(1), k.stride(2), k.stride(3), #
+            q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
+            k.stride(0), k.stride(2), k.stride(1), k.stride(3), #
             Q_HEAD, Q_CTX, KV_CTX, #
             BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
             BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
