@@ -73,7 +73,7 @@ ref_loss.backward()
 
 
 
-o, s = flash_attn_func(q_t, k_t, v_t, 1e-3)
+o = flash_attn_func(q_t, k_t, v_t, 1e-3)
 torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
 q.grad = None
 k.grad = None
