@@ -532,7 +532,7 @@ def test_dq_correctness():
     
     # Configure test parameters
     B, T, H, D = 1, 1024, 64, 128  # Match user's input shape
-    block_stride, block_size = 64, 64  # Typical block configuration
+    block_stride, block_size = 16, 64  # Typical block configuration
     
     # Generate random inputs
     q = torch.randn(B, T, H, D, device="cuda", requires_grad=True)
