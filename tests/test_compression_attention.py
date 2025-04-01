@@ -21,7 +21,15 @@ torch.manual_seed(9)
 q = torch.randn(bs*seq_len, num_q_head, head_dim, requires_grad=True)
 k = torch.randn(bs*seq_len, num_kv_head, head_dim, requires_grad=True)
 v = torch.randn(bs*seq_len, num_kv_head, head_dim, requires_grad=True)
+
+print(q.shape)
+print(k.shape)
+print(v.shape)
 t = torch.Tensor([0] + [seq_len] * bs)
+
+
+
+
 
 q_ref = q.clone().detach()
 k_ref = k.clone().detach()
