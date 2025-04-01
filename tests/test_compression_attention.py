@@ -62,7 +62,7 @@ k_ref_t = k_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 v_ref_t = v_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 
 
-ref_o, ref_s = attention_ref(q_ref_t, k_ref_t, v_ref_t, compress_block_stride, compress_block_size, causal=False, scale=1)
+ref_o, ref_s = attention_ref(q_ref_t, k_ref_t, v_ref_t, compress_block_stride, compress_block_size, causal=False, scale=None)
 
 q_ref.grad = None
 k_ref.grad = None
