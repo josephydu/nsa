@@ -254,19 +254,20 @@ def _attn_bwd_dq(dq, q, K, V,  #
     offs_n = start_n + tl.arange(0, BLOCK_N2)
     offs_k = tl.arange(0, HEAD_DIM)
     
-    # Initialize pointers with corrected dimension order
-    K_ptrs = K + offs_k[:, None] * stride_d + offs_n[None, :] * stride_tok  # [HEAD_DIM, BLOCK_N2]
-    V_ptrs = V + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d  # [BLOCK_N2, HEAD_DIM]
+    # Initialize pointers
+    # Initialize pointers with corrected dimensions
+    K_ptrs = K + offs_k[:, None] * stride_d + offs_n[None, :] * stride_tok
+    V_ptrs = V + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d
     do_ptrs = do + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d
     
     # Loop over blocks
     for _ in range(num_steps):
-        # Load K and V blocks with corrected shapes
-        k = tl.load(K_ptrs)  # [HEAD_DIM, BLOCK_N2]
-        v = tl.load(V_ptrs)  # [BLOCK_N2, HEAD_DIM]
+        # Load K and V blocks with proper transpose
+        k = tl.load(K_ptrs)  # shape: [HEAD_DIM, BLOCK_N2]
+        v = tl.load(V_ptrs)  # shape: [BLOCK_N2, HEAD_DIM]
         
-        # Compute QK^T with corrected matrix dimensions
-        # q shape: [BLOCK_M2, HEAD_DIM] 
+        # Compute QK^T with correct matrix dimensions
+        # q shape: [BLOCK_M2, HEAD_DIM]
         # k shape: [HEAD_DIM, BLOCK_N2]
         qk = tl.dot(q, k)  # Result shape: [BLOCK_M2, BLOCK_N2]
         
