@@ -379,11 +379,11 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     MASK_BLOCK_N2: tl.constexpr = BLOCK_N2 // BLK_SLICE_FACTOR
     offs_m = start_m + tl.arange(0, BLOCK_M2)
 
-    q = tl.load(Q + offs_m[:, None] * stride_tok * H + offs_k[None, :] * stride_d)
+    q = tl.load(Q + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d)
     dq = tl.zeros([BLOCK_M2, HEAD_DIM], dtype=tl.float32)
-    do = tl.load(DO + offs_m[:, None] * stride_tok * H + offs_k[None, :] * stride_d)
+    do = tl.load(DO + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d)
 
-    m = tl.load(M + offs_m)
+    m = tl.load(M + offs_m * H)  
     m = m[:, None]
 
     # Compute dQ for masked (diagonal) blocks.
@@ -412,7 +412,7 @@ def _attn_bwd(Q, K, V, sm_scale,  #
                       MASK=False  #
                       )
     # Write back dQ.
-    dq_ptrs = DQ + offs_m[:, None] * stride_tok * H + offs_k[None, :] * stride_d
+    dq_ptrs = DQ + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d
     dq *= LN2
     tl.store(dq_ptrs, dq)
 
