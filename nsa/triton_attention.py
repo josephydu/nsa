@@ -398,18 +398,18 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     # not due to anything important.  I just wanted to reuse the loop
     # structure for dK & dV above as much as possible.
     num_steps = BLOCK_M2 // MASK_BLOCK_N2
-    dq = _attn_bwd_dq(dq, q, K, V,  #
-                      do, m, D,  #
-                      stride_tok, stride_d,  #
-                      k_stride_tok, k_stride_d,
-                      v_stride_tok, v_stride_d,
-                      H, N_CTX,k.shape[1],  #
-                      BLOCK_M2, MASK_BLOCK_N2, HEAD_DIM,  #
-                      start_m, end_n - num_steps * MASK_BLOCK_N2, num_steps,  #
-                      block_stride=block_stride,
-                      block_size=block_size,
-                      MASK=True  #
-                      )
+    # dq = _attn_bwd_dq(dq, q, K, V,  #
+    #                   do, m, D,  #
+    #                   stride_tok, stride_d,  #
+    #                   k_stride_tok, k_stride_d,
+    #                   v_stride_tok, v_stride_d,
+    #                   H, N_CTX,k.shape[1],  #
+    #                   BLOCK_M2, MASK_BLOCK_N2, HEAD_DIM,  #
+    #                   start_m, end_n - num_steps * MASK_BLOCK_N2, num_steps,  #
+    #                   block_stride=block_stride,
+    #                   block_size=block_size,
+    #                   MASK=True  #
+    #                   )
     end_n -= num_steps * MASK_BLOCK_N2
     # stage 2
     num_steps = end_n // BLOCK_N2
