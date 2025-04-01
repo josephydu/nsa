@@ -468,6 +468,8 @@ class _attention(torch.autograd.Function):
         ctx.sm_scale = sm_scale
         ctx.HEAD_DIM = HEAD_DIM_K
         ctx.causal = causal
+        ctx.block_stride = block_stride
+        ctx.block_size = block_size
 
         s = torch.einsum("bthd, bshd->bhts", q, k)
         s = torch.nn.functional.softmax(s, dim=-1)
