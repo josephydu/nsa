@@ -404,7 +404,7 @@ def _attn_bwd(Q, K, V, sm_scale,  #
                       )
     end_n -= num_steps * MASK_BLOCK_N2
     # stage 2
-    num_steps = end_n // BLOCK_N2
+    num_steps = remaining = (Q_CTX - start_m - num_steps * MASK_BLOCK_N2) // BLOCK_N2
     dq = _attn_bwd_dq(dq, q, K, V,  #
                       do, m, D,  #
                       stride_tok, stride_d,  #
