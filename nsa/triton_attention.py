@@ -521,3 +521,60 @@ class _attention(torch.autograd.Function):
 
 
 flash_attn_func = _attention.apply
+def test_dq_correctness():
+    """Test dQ gradient correctness with random inputs"""
+    # Set random seed for reproducibility
+    torch.manual_seed(42)
+    
+    # Configure test parameters
+    B, T, H, D = 1, 1024, 64, 128  # Match user's input shape
+    block_stride, block_size = 64, 64  # Typical block configuration
+    
+    # Generate random inputs
+    q = torch.randn(B, T, H, D, device="cuda", requires_grad=True)
+    k = torch.randn(B, 61, H, D, device="cuda", requires_grad=True)
+    v = torch.randn(B, 61, H, D, device="cuda", requires_grad=True)
+    
+    # --- Test Triton implementation ---
+    # Forward pass
+    o_triton, s_triton = flash_attn_func(q, k, v, block_stride, block_size, True, 1.0)
+    
+    # Create dummy loss and backward
+    loss_triton = o_triton.sum()
+    loss_triton.backward()
+    dq_triton = q.grad.detach().clone()
+    
+    # Reset gradients
+    q.grad = None
+    k.grad = None
+    v.grad = None
+    
+    # --- Test PyTorch reference --- 
+    # Compute reference using PyTorch operations
+    q_ref = q.detach().requires_grad_(True)
+    k_ref = k.detach().requires_grad_(True)
+    v_ref = v.detach().requires_grad_(True)
+    
+    # PyTorch attention forward
+    attn_matrix = torch.einsum("bthd,bshd->bhts", q_ref, k_ref) * (1.0 / D**0.5)
+    attn_matrix = torch.softmax(attn_matrix, dim=-1)
+    o_ref = torch.einsum("bhts,bshd->bthd", attn_matrix, v_ref)
+    
+    # Backward pass
+    o_ref.sum().backward()
+    dq_ref = q_ref.grad.detach()
+    
+    # --- Compare results ---
+    # Calculate max difference
+    max_diff = torch.max(torch.abs(dq_triton - dq_ref))
+    print(f"Max difference between Triton and PyTorch dQ: {max_diff.item():.4e}")
+    
+    # Check if gradients match within tolerance
+    assert torch.allclose(dq_triton, dq_ref, atol=1e-2, rtol=1e-2), \
+        "dQ gradients do not match reference implementation"
+    
+    print("✅ dQ gradient test passed!")
+
+# Run the test when module is executed directly
+if __name__ == "__main__":
+    test_dq_correctness()
