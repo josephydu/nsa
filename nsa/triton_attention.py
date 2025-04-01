@@ -256,7 +256,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
     kT_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     vT_ptrs = V + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     # D (= delta) is pre-divided by ds_scale.
-    Di = tl.load(D + offs_m)
+    Di = tl.load(D + offs_m*H)
     # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.
     tl.static_assert(BLOCK_M2 % BLOCK_N2 == 0)
     curr_n = start_n
@@ -383,7 +383,7 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     dq = tl.zeros([BLOCK_M2, HEAD_DIM], dtype=tl.float32)
     do = tl.load(DO + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d)
 
-    m = tl.load(M + offs_m)
+    m = tl.load(M + offs_m*H)
     m = m[:, None]
 
     # Compute dQ for masked (diagonal) blocks.
