@@ -567,6 +567,7 @@ def test_dq_correctness():
     # Backward pass
     o_ref.sum().backward()
     dq_ref = q_ref.grad.detach()
+    print(dq_ref)
     
     # --- Compare results ---
     # Calculate max difference
