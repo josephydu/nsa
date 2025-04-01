@@ -250,52 +250,42 @@ def _attn_bwd_dq(dq, q, K, V,  #
                  # Filled in by the wrapper.
                  start_m, start_n, num_steps,  #
                  MASK: tl.constexpr):
+    offs_m = start_m + tl.arange(0, BLOCK_M2)
     offs_n = start_n + tl.arange(0, BLOCK_N2)
     offs_k = tl.arange(0, HEAD_DIM)
     
-    K_block_ptr = tl.make_block_ptr(
-        base=K,
-        shape=(Q_CTX, HEAD_DIM),
-        strides=(stride_tok, stride_d),
-        offsets=(start_n, 0),
-        block_shape=(BLOCK_N2, HEAD_DIM),
-        order=(1, 0),
-    )
-    V_block_ptr = tl.make_block_ptr(
-        base=V,
-        shape=(Q_CTX, HEAD_DIM),
-        strides=(stride_tok, stride_d),
-        offsets=(start_n, 0),
-        block_shape=(BLOCK_N2, HEAD_DIM),
-        order=(1, 0),
-    )
+    # Initialize pointers
+    K_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
+    V_ptrs = V + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d
+    do_ptrs = do + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d
     
     # Loop over blocks
     for _ in range(num_steps):
-        k = tl.load(K_block_ptr)
-        v = tl.load(V_block_ptr)
+        # Load K and V blocks
+        k = tl.load(K_ptrs)
+        v = tl.load(V_ptrs)
         
-        # Compute qk = q @ k.T
-        qk = tl.dot(q, tl.trans(k))
+        # Compute QK^T
+        qk = tl.dot(q, k)
+        
+        # Apply masking if needed
         if MASK:
             mask = offs_m[:, None] >= offs_n[None, :]
             qk = tl.where(mask, qk, -1e6)
         
-        # Compute softmax
+        # Compute softmax gradient
         p = tl.math.exp2(qk - m)
-        # Compute dp = do @ v.T
-        dp = tl.dot(do, tl.trans(v))
-        # Compute ds = p * (dp - D)
-        ds = p * (dp - D)
-        # Compute dq += ds @ k
-        dq += tl.dot(ds.to(k.dtype), k)
+        dp = tl.dot(do, v.to(do.dtype))
+        ds = p * (dp - D[offs_m, None])
+        
+        # Accumulate dQ
+        dq += tl.dot(ds.to(k.dtype), tl.trans(k))
         
         # Update pointers
-        K_block_ptr = tl.advance(K_block_ptr, (BLOCK_N2, 0))
-        V_block_ptr = tl.advance(V_block_ptr, (BLOCK_N2, 0))
+        K_ptrs += BLOCK_N2 * stride_tok
+        V_ptrs += BLOCK_N2 * stride_tok
         offs_n += BLOCK_N2
-
-    return dq
+    
     return dq
 
 
