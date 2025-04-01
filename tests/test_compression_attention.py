@@ -80,5 +80,3 @@ print(q_ref.grad)
 
 
 # torch.testing.assert_close(s, ref_s, rtol=1e-2, atol=1e-2)
-
-o.sum().backward()
