@@ -383,7 +383,7 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     dq = tl.zeros([BLOCK_M2, HEAD_DIM], dtype=tl.float32)
     do = tl.load(DO + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d)
 
-    m = tl.load(M + offs_m * H)  
+    m = tl.load(M + offs_m)  
     m = m[:, None]
 
     # Compute dQ for masked (diagonal) blocks.
