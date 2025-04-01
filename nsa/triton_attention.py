@@ -491,6 +491,7 @@ class _attention(torch.autograd.Function):
             o, do,  #
             delta,  #
             BATCH, Q_HEAD, Q_CTX,  #
+            o.stride(0), o.stride(2), o.stride(1), o.stride(3),  # Add proper strides
             BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
         )
         grid = (Q_CTX // BLOCK_N1, BATCH, Q_HEAD)
