@@ -4,7 +4,7 @@ from nsa.torch_attention import attention_ref
 from nsa.triton_attention import flash_attn_func
 from nsa.compression_kv import KVCompressor
 
-
+import math
 bs, num_q_head, num_kv_head, head_dim = 1, 4, 4, 128
 compress_block_size, compress_block_stride = 64, 16
 selection_block, selected_block_count = 64, 32
@@ -62,7 +62,7 @@ k_ref_t = k_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 v_ref_t = v_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 
 
-ref_o, ref_s = attention_ref(q_ref_t, k_ref_t, v_ref_t, compress_block_stride, compress_block_size, causal=False, scale=1.0)
+ref_o, ref_s = attention_ref(q_ref_t, k_ref_t, v_ref_t, compress_block_stride, compress_block_size, causal=False, scale=1/math.sqrt(head_dim))
 
 q_ref.grad = None
 k_ref.grad = None
@@ -73,7 +73,7 @@ ref_loss.backward()
 
 
 
-o, s = flash_attn_func(q_t, k_t, v_t, compress_block_stride, compress_block_size, False, 1.0)
+o, s = flash_attn_func(q_t, k_t, v_t, compress_block_stride, compress_block_size, False, 1/math.sqrt(head_dim))
 torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
 q.grad = None
 k.grad = None
