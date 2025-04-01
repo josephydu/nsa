@@ -166,36 +166,36 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
 
 
 @triton.jit
-def _attn_bwd_preprocess(O, DO,  #
-                         Delta,  #
-                         Z, H, N_CTX,  #
-                         BLOCK_M: tl.constexpr, HEAD_DIM: tl.constexpr  #
-                         ):
+def _attn_bwd_preprocess(O, DO, Delta, Z, H, N_CTX, 
+                         stride_oz, stride_oh, stride_om, stride_on,  # Add these strides!
+                         BLOCK_M: tl.constexpr, HEAD_DIM: tl.constexpr):
     off_m = tl.program_id(0) * BLOCK_M + tl.arange(0, BLOCK_M)
     off_z = tl.program_id(1)
     off_h = tl.program_id(2)
     off_n = tl.arange(0, HEAD_DIM)
-    # load
-    o = tl.load(O + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :])
-    do = tl.load(O + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :])
-    #do = tl.load(DO + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :]).to(tl.float32)
+    
+    # Calculate proper offsets using strides for (bs, seq_len, num_head, head_dim) layout
+    o_offset = off_z * stride_oz + off_m[:, None] * stride_om + off_h * stride_oh + off_n[None, :] * stride_on
+    
+    # Load using correct offsets
+    o = tl.load(O + o_offset)
+    do = tl.load(DO + o_offset)
     delta = tl.sum(o * do, axis=1)
-    # write-back
-    tl.store(Delta + off_z * N_CTX * H + off_h + off_m * H, delta)
+    
+    # Store delta in correct location - Delta shape is [bs, seq_len, num_head]
+    delta_offset = off_z * N_CTX * H + off_m * H + off_h
+    tl.store(Delta + delta_offset, delta)
 
 
 
 
 @triton.jit
-def _attn_bwd_dq(dq, q, K, V,  #
-                 do, m, D,
-                 # shared by Q/K/V/DO.
+def _attn_bwd_dq(dq, q, K, V, do, m, D,
                  stride_tok, stride_d,  #
                  H, N_CTX,  #
                  BLOCK_M2: tl.constexpr,  #
                  BLOCK_N2: tl.constexpr,  #
                  HEAD_DIM: tl.constexpr,
-                 # Filled in by the wrapper.
                  start_m, start_n, num_steps,  #
                  MASK: tl.constexpr):
     # Initialize offsets
@@ -203,49 +203,44 @@ def _attn_bwd_dq(dq, q, K, V,  #
     offs_n = start_n + tl.arange(0, BLOCK_N2)
     offs_k = tl.arange(0, HEAD_DIM)
     
-    # Initialize pointers to K and V tensors
+    # Initialize pointers to K and V tensors using correct strides for [bs, seq_len, num_head, head_dim]
     kT_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     vT_ptrs = V + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     
-    # Load delta values (D) for the current query positions
-    # D has shape [batch, seq_len, num_head] in the calling context
-    Di = tl.load(D + offs_m)
+    # Load delta values - ensure we're accessing the correct elements in D
+    # D has shape [bs, seq_len, num_head]
+    Di = tl.load(D + offs_m * H)  # Multiply by H to get the right offset for each sequence position
     
-    # Ensure block dimensions are compatible
+    # Make sure block dimensions are valid
     tl.static_assert(BLOCK_M2 % BLOCK_N2 == 0)
     
-    # Initialize tracking variables for the current position
     curr_n = start_n
     step_n = BLOCK_N2
     
-    # Process blocks of keys and values
     for blk_idx in range(num_steps):
-        # Load this block of keys and values
+        # Load keys and values
         kT = tl.load(kT_ptrs)
         vT = tl.load(vT_ptrs)
         
-        # Compute attention scores: q * K^T
+        # Compute attention scores
         qk = tl.dot(q, kT)
         
         # Apply softmax scaling
         p = tl.math.exp2(qk - m)
         
-        # Apply causal masking if needed
+        # Apply causal masking if required
         if MASK:
-            # Update offsets for the current block
             offs_n = curr_n + tl.arange(0, BLOCK_N2)
-            # Create mask where q position >= k position (causal)
             mask = (offs_m[:, None] >= offs_n[None, :])
             p = tl.where(mask, p, 0.0)
         
-        # Compute gradient of output with respect to attention scores
+        # Compute gradients
         dp = tl.dot(do, vT).to(tl.float32)
-        
-        # Compute gradient of softmax: p * (dp - D)
+        # Di contains pre-calculated delta values for each query position
         ds = p * (dp - Di[:, None])
         ds = ds.to(q.dtype)
         
-        # Compute gradient of query: ds * K
+        # Update dq
         dq += tl.dot(ds, tl.trans(kT))
         
         # Move to next block
@@ -423,6 +418,7 @@ class _attention(torch.autograd.Function):
             o, do,  #
             delta,  #
             BATCH, Q_HEAD, Q_CTX,  #
+            o.stride(0), o.stride(2), o.stride(1), o.stride(3),  # Add these strides!
             BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
         )
         grid = (Q_CTX // BLOCK_N1, BATCH, Q_HEAD)
