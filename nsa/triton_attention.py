@@ -184,110 +184,74 @@ def _attn_bwd_preprocess(O, DO,  #
     tl.store(Delta + off_z * N_CTX * H + off_h + off_m * H, delta)
 
 
-# The main inner-loop logic for computing dK and dV.
-@triton.jit
-def _attn_bwd_dkdv(dk, dv,  #
-                   Q, k, v, sm_scale,  #
-                   DO,  #
-                   M, D,  #
-                   # shared by Q/K/V/DO.
-                   stride_tok, stride_d,  #
-                   H, N_CTX, BLOCK_M1: tl.constexpr,  #
-                   BLOCK_N1: tl.constexpr,  #
-                   HEAD_DIM: tl.constexpr,  #
-                   # Filled in by the wrapper.
-                   start_n, start_m, num_steps,  #
-                   MASK: tl.constexpr):
-    offs_m = start_m + tl.arange(0, BLOCK_M1)
-    offs_n = start_n + tl.arange(0, BLOCK_N1)
-    offs_k = tl.arange(0, HEAD_DIM)
-    qT_ptrs = Q + offs_m[None, :] * stride_tok + offs_k[:, None] * stride_d
-    do_ptrs = DO + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d
-    # BLOCK_N1 must be a multiple of BLOCK_M1, otherwise the code wouldn't work.
-    tl.static_assert(BLOCK_N1 % BLOCK_M1 == 0)
-    curr_m = start_m
-    step_m = BLOCK_M1
-    for blk_idx in range(num_steps):
-        qT = tl.load(qT_ptrs)
-        # Load m before computing qk to reduce pipeline stall.
-        offs_m = curr_m + tl.arange(0, BLOCK_M1)
-        m = tl.load(M + offs_m)
-        qkT = tl.dot(k, qT)
-        pT = tl.math.exp2(qkT - m[None, :])
-        # Autoregressive masking.
-        if MASK:
-            mask = (offs_m[None, :] >= offs_n[:, None])
-            pT = tl.where(mask, pT, 0.0)
-        do = tl.load(do_ptrs).to(dk.dtype)
-        # Compute dV.
-        ppT = pT
-        ppT = ppT.to(dk.dtype)
-        dv += tl.dot(ppT, do)
-        # D (= delta) is pre-divided by ds_scale.
-        Di = tl.load(D + offs_m)
-        # Compute dP and dS.
-        dpT = tl.dot(v.to(do.dtype), tl.trans(do)).to(tl.float32)
-        dsT = pT * (dpT - Di[None, :])
-        dsT = dsT.to(dk.dtype)
-        dk += tl.dot(dsT.to(qT.dtype), tl.trans(qT))
-        # Increment pointers.
-        curr_m += step_m
-        qT_ptrs += step_m * stride_tok
-        do_ptrs += step_m * stride_tok
-    return dk, dv
 
 
-# the main inner-loop logic for computing dQ
 @triton.jit
 def _attn_bwd_dq(dq, q, K, V,  #
                  do, m, D,
                  # shared by Q/K/V/DO.
                  stride_tok, stride_d,  #
-                 H, Q_CTX,  #
+                 H, N_CTX,  #
                  BLOCK_M2: tl.constexpr,  #
                  BLOCK_N2: tl.constexpr,  #
                  HEAD_DIM: tl.constexpr,
                  # Filled in by the wrapper.
                  start_m, start_n, num_steps,  #
                  MASK: tl.constexpr):
+    # Initialize offsets
     offs_m = start_m + tl.arange(0, BLOCK_M2)
     offs_n = start_n + tl.arange(0, BLOCK_N2)
     offs_k = tl.arange(0, HEAD_DIM)
     
-    # Initialize pointers
-    # Initialize pointers with corrected dimensions
-    K_ptrs = K + offs_k[:, None] * stride_d + offs_n[None, :] * stride_tok
-    V_ptrs = V + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d
-    do_ptrs = do + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d
+    # Initialize pointers to K and V tensors
+    kT_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
+    vT_ptrs = V + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     
-    # Loop over blocks
-    for _ in range(num_steps):
-        # Load K and V blocks with proper transpose
-        k = tl.load(K_ptrs)  # shape: [HEAD_DIM, BLOCK_N2]
-        v = tl.load(V_ptrs)  # shape: [BLOCK_N2, HEAD_DIM]
+    # Load delta values (D) for the current query positions
+    # D has shape [batch, seq_len, num_head] in the calling context
+    Di = tl.load(D + offs_m)
+    
+    # Ensure block dimensions are compatible
+    tl.static_assert(BLOCK_M2 % BLOCK_N2 == 0)
+    
+    # Initialize tracking variables for the current position
+    curr_n = start_n
+    step_n = BLOCK_N2
+    
+    # Process blocks of keys and values
+    for blk_idx in range(num_steps):
+        # Load this block of keys and values
+        kT = tl.load(kT_ptrs)
+        vT = tl.load(vT_ptrs)
         
-        # Compute QK^T with correct matrix dimensions
-        # q shape: [BLOCK_M2, HEAD_DIM]
-        # k shape: [HEAD_DIM, BLOCK_N2]
-        qk = tl.dot(q, k)  # Result shape: [BLOCK_M2, BLOCK_N2]
+        # Compute attention scores: q * K^T
+        qk = tl.dot(q, kT)
         
-        # Apply masking if needed
-        if MASK:
-            mask = offs_m[:, None] >= offs_n[None, :]
-            qk = tl.where(mask, qk, -1e6)
-        
-        # Compute softmax gradient
+        # Apply softmax scaling
         p = tl.math.exp2(qk - m)
-        dp = tl.dot(do, v.to(do.dtype))
-        ds = p * (dp - D[offs_m, None])
         
-        # Accumulate dQ
-        dq += tl.dot(ds.to(k.dtype), tl.trans(k))
+        # Apply causal masking if needed
+        if MASK:
+            # Update offsets for the current block
+            offs_n = curr_n + tl.arange(0, BLOCK_N2)
+            # Create mask where q position >= k position (causal)
+            mask = (offs_m[:, None] >= offs_n[None, :])
+            p = tl.where(mask, p, 0.0)
         
-        # Update pointers
-        K_ptrs += BLOCK_N2 * stride_tok
-        V_ptrs += BLOCK_N2 * stride_tok
-        offs_n += BLOCK_N2
+        # Compute gradient of output with respect to attention scores
+        dp = tl.dot(do, vT).to(tl.float32)
+        
+        # Compute gradient of softmax: p * (dp - D)
+        ds = p * (dp - Di[:, None])
+        ds = ds.to(q.dtype)
+        
+        # Compute gradient of query: ds * K
+        dq += tl.dot(ds, tl.trans(kT))
+        
+        # Move to next block
+        curr_n += step_n
+        kT_ptrs += step_n * stride_tok
+        vT_ptrs += step_n * stride_tok
     
     return dq
 
@@ -343,41 +307,6 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     v = tl.load(V + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d)
 
     num_steps = BLOCK_N1 // MASK_BLOCK_M1
-
-    # dk, dv = _attn_bwd_dkdv(dk, dv,  #
-    #                         Q, k, v, sm_scale,  #
-    #                         DO,  #
-    #                         M, D,  #
-    #                         stride_tok, stride_d,  #
-    #                         H, Q_CTX,  #
-    #                         MASK_BLOCK_M1, BLOCK_N1, HEAD_DIM,  #
-    #                         start_n, start_m, num_steps,  #
-    #                         MASK=True  #
-    #                         )
-
-    # start_m += num_steps * MASK_BLOCK_M1
-    # num_steps = (KV_CTX - start_m) // BLOCK_M1
-
-    # # Compute dK and dV for non-masked blocks.
-    # dk, dv = _attn_bwd_dkdv(  #
-    #     dk, dv,  #
-    #     Q, k, v, sm_scale,  #
-    #     DO,  #
-    #     M, D,  #
-    #     stride_tok, stride_d,  #
-    #     H, KV_CTX,  #
-    #     BLOCK_M1, BLOCK_N1, HEAD_DIM,  #
-    #     start_n, start_m, num_steps,  #
-    #     MASK=False  #
-    # )
-
-    # dv_ptrs = DV + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d
-    # tl.store(dv_ptrs, dv)
-
-    # # Write back dK.
-    # dk *= sm_scale
-    # dk_ptrs = DK + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d
-    # tl.store(dk_ptrs, dk)
 
     # THIS BLOCK DOES DQ:
     start_m = pid * BLOCK_M2
