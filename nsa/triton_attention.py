@@ -181,9 +181,7 @@ def _attn_bwd_preprocess(O, DO,  #
     #do = tl.load(DO + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :]).to(tl.float32)
     delta = tl.sum(o * do, axis=1)
     # write-back
-    tl.store(Delta + off_z * N_CTX * H + off_h * N_CTX + off_m, delta)
-
-    # tl.store(Delta + off_z * N_CTX * H + off_h + off_m * H, delta)
+    tl.store(Delta + off_z * N_CTX * H + off_h + off_m * H, delta)
 
 
 # The main inner-loop logic for computing dK and dV.
@@ -258,7 +256,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
     kT_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     vT_ptrs = V + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
     # D (= delta) is pre-divided by ds_scale.
-    Di = tl.load(D + offs_m)
+    Di = tl.load(D + offs_m*H)
     # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.
     tl.static_assert(BLOCK_M2 % BLOCK_N2 == 0)
     curr_n = start_n
@@ -404,7 +402,7 @@ def _attn_bwd(Q, K, V, sm_scale,  #
                       )
     end_n -= num_steps * MASK_BLOCK_N2
     # stage 2
-    num_steps = remaining = (Q_CTX - start_m - num_steps * MASK_BLOCK_N2) // BLOCK_N2
+    num_steps = end_n // BLOCK_N2
     dq = _attn_bwd_dq(dq, q, K, V,  #
                       do, m, D,  #
                       stride_tok, stride_d,  #
