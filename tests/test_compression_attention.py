@@ -43,3 +43,4 @@ o, s = flash_attn_func(q, ck, cv, compress_block_stride, compress_block_size, Tr
 # torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
 # torch.testing.assert_close(s, ref_s, rtol=1e-2, atol=1e-2)
 
+o.sum().backward()
