@@ -252,8 +252,6 @@ def _attn_bwd_dq(dq, q, K, V,  #
                  # Filled in by the wrapper.
                  start_m, start_n, num_steps,  #
                  block_stride, block_size,
-                 stride_qz, stride_qh,
-                 stride_kz, stride_kh,
                  MASK: tl.constexpr):
     offs_m = start_m + tl.arange(0, BLOCK_M2)
     offs_n = start_n + tl.arange(0, BLOCK_N2)
