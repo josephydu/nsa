@@ -57,7 +57,7 @@ q_ref_t = q_ref.reshape(bs, seq_len, num_q_head, head_dim)
 
 
 k_t = k.reshape(bs, seq_len, num_kv_head, head_dim).transpose(1,2)
-v_t = v.reshape(bs, seq_len, num_kv_head, head_dim).transpose(0,2,1,3)
+v_t = v.reshape(bs, seq_len, num_kv_head, head_dim).transpose(1,2)
 k_ref_t = k_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 v_ref_t = v_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 
