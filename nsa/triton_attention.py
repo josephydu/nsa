@@ -181,7 +181,9 @@ def _attn_bwd_preprocess(O, DO,  #
     #do = tl.load(DO + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :]).to(tl.float32)
     delta = tl.sum(o * do, axis=1)
     # write-back
-    tl.store(Delta + off_z * N_CTX * H + off_h + off_m * H, delta)
+    tl.store(Delta + off_z * N_CTX * H + off_h * N_CTX + off_m, delta)
+
+    # tl.store(Delta + off_z * N_CTX * H + off_h + off_m * H, delta)
 
 
 # The main inner-loop logic for computing dK and dV.
