@@ -413,7 +413,7 @@ def _attn_bwd(Q, K, V, sm_scale,  #
                       )
     # Write back dQ.
     dq_ptrs = DQ + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d
-    dq *= LN2
+    # dq *= LN2
     tl.store(dq_ptrs, dq)
 
 
