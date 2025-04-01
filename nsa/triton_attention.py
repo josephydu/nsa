@@ -361,4 +361,4 @@ class _attention(torch.autograd.Function):
         return dq.to(q.dtype), dk, dv, None
 
 
-attention = _attention.apply
+flash_attn_func = _attention.apply
