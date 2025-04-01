@@ -304,8 +304,8 @@ def _attn_bwd(Q, K, V, sm_scale,  #
 
     bid = tl.program_id(1)
     hid = tl.program_id(2)
-    off_chz = (bid * Q_CTX*H+hid).to(tl.int64)
-    adj = (stride_h * hid + stride_z * bid).to(tl.int64)
+    off_chz = (bid *H+hid).to(tl.int64)
+    adj = (stride_z * bid + stride_h * hid).to(tl.int64)
     pid = tl.program_id(0)
 
     # offset pointers for batch/head
@@ -493,7 +493,6 @@ class _attention(torch.autograd.Function):
         _attn_bwd[grid](
             q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
             M, delta,  #
-            # 调整stride顺序以匹配 (bs, seq_len, num_head, head_dim)
             q.stride(0), q.stride(2), q.stride(1), q.stride(3), 
             k.stride(0), k.stride(2), k.stride(1), k.stride(3), 
             Q_HEAD, Q_CTX, KV_CTX, #
