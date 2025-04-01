@@ -166,22 +166,26 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
 
 
 @triton.jit
-def _attn_bwd_preprocess(O, DO,  #
-                         Delta,  #
+def _attn_bwd_preprocess(O, DO, Delta,  #
                          Z, H, N_CTX,  #
+                         stride_oz, stride_oh, stride_om, stride_on,  # Add proper strides
                          BLOCK_M: tl.constexpr, HEAD_DIM: tl.constexpr  #
                          ):
     off_m = tl.program_id(0) * BLOCK_M + tl.arange(0, BLOCK_M)
     off_z = tl.program_id(1)
     off_h = tl.program_id(2)
     off_n = tl.arange(0, HEAD_DIM)
-    # load
-    o = tl.load(O + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :])
-    do = tl.load(O + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :])
-    #do = tl.load(DO + off_z * HEAD_DIM * N_CTX * H + off_m[:, None] * HEAD_DIM * H + off_n[None, :]).to(tl.float32)
+    
+    o_base = off_z * stride_oz + off_h * stride_oh
+    o_offset = o_base + off_m[:, None] * stride_om + off_n[None, :] * stride_on
+    
+    o = tl.load(O + o_offset)
+    do = tl.load(DO + o_offset)
+    
     delta = tl.sum(o * do, axis=1)
-    # write-back
-    tl.store(Delta + off_z * N_CTX * H + off_m * H + off_h, delta) 
+    
+    delta_offset = off_z * N_CTX * H + off_m * H + off_h
+    tl.store(Delta + delta_offset, delta)
 
 
 # The main inner-loop logic for computing dK and dV.
