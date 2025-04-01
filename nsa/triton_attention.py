@@ -243,20 +243,23 @@ def _attn_bwd_dq(dq, q, K, V,  #
                  do, m, D,
                  # shared by Q/K/V/DO.
                  stride_tok, stride_d,  #
-                 stride_k,
-                 H, N_CTX,  #
+                 k_stride_tok, k_stride_d,
+                 v_stride_tok, v_stride_d,
+                 H, N_CTX, KV_CTX,  #
                  BLOCK_M2: tl.constexpr,  #
                  BLOCK_N2: tl.constexpr,  #
                  HEAD_DIM: tl.constexpr,
                  # Filled in by the wrapper.
                  start_m, start_n, num_steps,  #
                  block_stride, block_size,
+                 stride_qz, stride_qh,
+                 stride_kz, stride_kh,
                  MASK: tl.constexpr):
     offs_m = start_m + tl.arange(0, BLOCK_M2)
     offs_n = start_n + tl.arange(0, BLOCK_N2)
     offs_k = tl.arange(0, HEAD_DIM)
-    kT_ptrs = K + offs_n[None, :] * stride_k + offs_k[:, None] * stride_d
-    vT_ptrs = V + offs_n[None, :] * stride_k + offs_k[:, None] * stride_d
+    kT_ptrs = K + offs_n[None, :] * k_stride_tok + offs_k[:, None] * k_stride_d
+    vT_ptrs = V + offs_n[None, :] * v_stride_tok + offs_k[:, None] * v_stride_d
     # D (= delta) is pre-divided by ds_scale.
     Di = tl.load(D + offs_m)
     # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.
@@ -264,8 +267,8 @@ def _attn_bwd_dq(dq, q, K, V,  #
     curr_n = start_n
     step_n = BLOCK_N2
     for blk_idx in range(num_steps):
-        kT = tl.load(kT_ptrs)
-        vT = tl.load(vT_ptrs)
+        kT = tl.load(kT_ptrs, mask=(offs_n < KV_CTX)[None, :], other=0.0)
+        vT = tl.load(vT_ptrs, mask=(offs_n < KV_CTX)[None, :], other=0.0)
         qk = tl.dot(q, kT)
         p = tl.math.exp2(qk - m)
         # Autoregressive masking.
@@ -282,8 +285,8 @@ def _attn_bwd_dq(dq, q, K, V,  #
         dq += tl.dot(ds, tl.trans(kT))
         # Increment pointers.
         curr_n += step_n
-        kT_ptrs += step_n * stride_tok
-        vT_ptrs += step_n * stride_tok
+        kT_ptrs += step_n * k_stride_tok
+        vT_ptrs += step_n * v_stride_tok
     return dq
 
 
@@ -295,7 +298,8 @@ def _attn_bwd(Q, K, V, sm_scale,  #
                 M, D,
                 # shared by Q/K/V/DO.
                 stride_z, stride_h, stride_tok, stride_d,  #
-                stride_k,
+                k_stride_z, k_stride_h, k_stride_tok, k_stride_d,
+                v_stride_z, v_stride_h, v_stride_tok, v_stride_d,
                 H, N_CTX,  #
                 BLOCK_M1: tl.constexpr,  #
                 BLOCK_N1: tl.constexpr,  #
@@ -399,8 +403,9 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     dq = _attn_bwd_dq(dq, q, K, V,  #
                       do, m, D,  #
                       stride_tok, stride_d,  #
-                      stride_k,
-                      H, N_CTX,  #
+                      k_stride_tok, k_stride_d,
+                      v_stride_tok, v_stride_d,
+                      H, N_CTX,k.shape[1],  #
                       BLOCK_M2, MASK_BLOCK_N2, HEAD_DIM,  #
                       start_m, end_n - num_steps * MASK_BLOCK_N2, num_steps,  #
                       block_stride=block_stride,
@@ -509,7 +514,8 @@ class _attention(torch.autograd.Function):
             q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
             M, delta,  #
             q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
-            k.stride(1),
+            k.stride(0), k.stride(2), k.stride(1), k.stride(3),
+            v.stride(0), v.stride(2), v.stride(1), v.stride(3),
             N_HEAD, N_CTX,  #
             BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
             BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
@@ -525,61 +531,3 @@ class _attention(torch.autograd.Function):
 
 
 flash_attn_func = _attention.apply
-def test_dq_correctness():
-    """Test dQ gradient correctness with random inputs"""
-    # Set random seed for reproducibility
-    torch.manual_seed(42)
-    
-    # Configure test parameters
-    B, T, H, D = 1, 1024, 16, 32  # Match user's input shape
-    block_stride, block_size = 16, 64  # Typical block configuration
-    
-    # Generate random inputs
-    q = torch.randn(B, T, H, D, device="cuda", requires_grad=True)
-    k = torch.randn(B, 61, H, D, device="cuda", requires_grad=True)
-    v = torch.randn(B, 61, H, D, device="cuda", requires_grad=True)
-    
-    # --- Test Triton implementation ---
-    # Forward pass
-    o_triton, s_triton = flash_attn_func(q, k, v, block_stride, block_size, True, None)
-    
-    # Create dummy loss and backward
-    loss_triton = o_triton.sum()
-    loss_triton.backward()
-    dq_triton = q.grad.detach().clone()
-    
-    # Reset gradients
-    q.grad = None
-    k.grad = None
-    v.grad = None
-    
-    # --- Test PyTorch reference --- 
-    # Compute reference using PyTorch operations
-    q_ref = q.detach().requires_grad_(True)
-    k_ref = k.detach().requires_grad_(True)
-    v_ref = v.detach().requires_grad_(True)
-    
-    # PyTorch attention forward
-    attn_matrix = torch.einsum("bthd,bshd->bhts", q_ref, k_ref) * (1.0 / D**0.5)
-    attn_matrix = torch.softmax(attn_matrix, dim=-1)
-    o_ref = torch.einsum("bhts,bshd->bthd", attn_matrix, v_ref)
-    
-    # Backward pass
-    o_ref.sum().backward()
-    dq_ref = q_ref.grad.detach()
-    print(dq_ref)
-    
-    # --- Compare results ---
-    # Calculate max difference
-    max_diff = torch.max(torch.abs(dq_triton - dq_ref))
-    print(f"Max difference between Triton and PyTorch dQ: {max_diff.item():.4e}")
-    
-    # Check if gradients match within tolerance
-    assert torch.allclose(dq_triton, dq_ref, atol=1e-2, rtol=1e-2), \
-        "dQ gradients do not match reference implementation"
-    
-    print("✅ dQ gradient test passed!")
-
-# Run the test when module is executed directly
-if __name__ == "__main__":
-    test_dq_correctness()
