@@ -39,7 +39,7 @@ q_ref.retain_grad()
 k_ref.retain_grad()
 v_ref.retain_grad()
 
-q_t = q.reshape(bs, seq_len, num_q_head, head_dim).transpose(1,2)
+q_t = q.reshape(bs, seq_len, num_q_head, head_dim)
 q_ref_t = q_ref.reshape(bs, seq_len, num_q_head, head_dim)
 
 # compressor = KVCompressor(
@@ -56,8 +56,8 @@ q_ref_t = q_ref.reshape(bs, seq_len, num_q_head, head_dim)
 # torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
 
 
-k_t = k.reshape(bs, seq_len, num_kv_head, head_dim).transpose(1,2)
-v_t = v.reshape(bs, seq_len, num_kv_head, head_dim).transpose(1,2)
+k_t = k.reshape(bs, seq_len, num_kv_head, head_dim)
+v_t = v.reshape(bs, seq_len, num_kv_head, head_dim)
 k_ref_t = k_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 v_ref_t = v_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 
