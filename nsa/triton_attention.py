@@ -343,32 +343,32 @@ def _attn_bwd(Q, K, V, sm_scale,  #
 
     num_steps = BLOCK_N1 // MASK_BLOCK_M1
 
-    # dk, dv = _attn_bwd_dkdv(dk, dv,  #
-    #                         Q, k, v, sm_scale,  #
-    #                         DO,  #
-    #                         M, D,  #
-    #                         stride_tok, stride_d,  #
-    #                         H, N_CTX,  #
-    #                         MASK_BLOCK_M1, BLOCK_N1, HEAD_DIM,  #
-    #                         start_n, start_m, num_steps,  #
-    #                         MASK=True  #
-    #                         )
+    dk, dv = _attn_bwd_dkdv(dk, dv,  #
+                            Q, k, v, sm_scale,  #
+                            DO,  #
+                            M, D,  #
+                            stride_tok, stride_d,  #
+                            H, N_CTX,  #
+                            MASK_BLOCK_M1, BLOCK_N1, HEAD_DIM,  #
+                            start_n, start_m, num_steps,  #
+                            MASK=True  #
+                            )
 
     start_m += num_steps * MASK_BLOCK_M1
     num_steps = (N_CTX - start_m) // BLOCK_M1
 
     # Compute dK and dV for non-masked blocks.
-    # dk, dv = _attn_bwd_dkdv(  #
-    #     dk, dv,  #
-    #     Q, k, v, sm_scale,  #
-    #     DO,  #
-    #     M, D,  #
-    #     stride_tok, stride_d,  #
-    #     H, N_CTX,  #
-    #     BLOCK_M1, BLOCK_N1, HEAD_DIM,  #
-    #     start_n, start_m, num_steps,  #
-    #     MASK=False  #
-    # )
+    dk, dv = _attn_bwd_dkdv(  #
+        dk, dv,  #
+        Q, k, v, sm_scale,  #
+        DO,  #
+        M, D,  #
+        stride_tok, stride_d,  #
+        H, N_CTX,  #
+        BLOCK_M1, BLOCK_N1, HEAD_DIM,  #
+        start_n, start_m, num_steps,  #
+        MASK=False  #
+    )
 
     dv_ptrs = DV + offs_n[:, None] * stride_tok + offs_k[None, :] * stride_d
     tl.store(dv_ptrs, dv)
