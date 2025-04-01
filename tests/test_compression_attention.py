@@ -22,9 +22,7 @@ q = torch.randn(bs*seq_len, num_q_head, head_dim, requires_grad=True)
 k = torch.randn(bs*seq_len, num_kv_head, head_dim, requires_grad=True)
 v = torch.randn(bs*seq_len, num_kv_head, head_dim, requires_grad=True)
 
-print(q.shape)
-print(k.shape)
-print(v.shape)
+
 t = torch.Tensor([0] + [seq_len] * bs)
 
 
@@ -73,6 +71,9 @@ v_ref.grad = None
 ref_loss = (ref_o*ref_o).sum()
 ref_loss.backward()
 
+print(q_t.shape)
+print(k_t.shape)
+print(v_t.shape)
 
 o, s = flash_attn_func(q_t, k_t, v_t, compress_block_stride, compress_block_size, False, None)
 torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
