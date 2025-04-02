@@ -254,17 +254,17 @@ if __name__ == "__main__":
 
     import pdb;
     pdb.set_trace()
-    # assert not torch.any(torch.isnan(ref))
-    # assert not torch.any(torch.isnan(ref_dq))
-    # assert not torch.any(torch.isnan(ref_dk))
-    # assert not torch.any(torch.isnan(ref_dv))
-    # assert not torch.any(torch.isnan(ref_dg_slc))
+    assert not torch.isnan(ref).any()
+    assert not torch.isnan(ref_dq).any()
+    assert not torch.isnan(ref_dk).any()
+    assert not torch.isnan(ref_dv).any() # nan
+    assert not torch.isnan(ref_dg_slc).any() # nan
     
-    assert not torch.any(torch.isnan(tri))
-    assert not torch.any(torch.isnan(tri_dq))
-    assert not torch.any(torch.isnan(tri_dk))
-    assert not torch.any(torch.isnan(tri_dv))
-    assert not torch.any(torch.isnan(tri_dg_slc))
+    assert not torch.isnan(tri).any()
+    assert not torch.isnan(tri_dq).any()
+    assert not torch.isnan(tri_dk).any()
+    assert not torch.isnan(tri_dv).any()
+    assert not torch.isnan(tri_dg_slc).any()
     
     # assert_close(" o", ref, tri, 0.004)
     torch.testing.assert_close(ref, tri, atol=1e-2, rtol=1e-2)
