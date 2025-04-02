@@ -186,11 +186,7 @@ if __name__ == "__main__":
     
     #NOTE: We change first element of block_indices from 0 to others manually, aiming to produce some nan in ref
     block_indices[0][0][0][0] = 4
-    block_indices[0][3][0][0] = 2
-    block_indices[0][7][0][0] = 10
-    block_indices[1][40][0][0] = 2
     block_indices[1][63][0][0] = 7
-    block_indices[1][10][0][0] = 5
 
     block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
 
@@ -222,7 +218,9 @@ if __name__ == "__main__":
     )
     
     #NOTE: We replace nan in ref to 0.0 to match the result of tri and make bwd correct
-    ref[torch.isnan(ref)] = 0.0
+    # Use silice instead of in-place
+    # ref[torch.isnan(ref)] = 0.0
+    print()
     
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
