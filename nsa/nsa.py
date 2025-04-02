@@ -2,7 +2,7 @@ import torch
 from flash_attn.flash_attn_interface import flash_attn_varlen_func as flash_attn_v2_func
 from torch import nn
 from einops import rearrange, repeat
-from nsa import selection_attention
+# from nsa import selection_attention
 from nsa.compression_kv import KVCompressor, KVCompressorVarlen
 from nsa.triton_attention import flash_attn_func as attn_func
 
