@@ -877,6 +877,8 @@ if __name__ == "__main__":
                 # print(i_i)
                 block_indices[b, t, h, :len(i_i)] = i_i
     block_indices = block_indices.sort(-1)[0]
+    block_indices[0][0][0][0] = 16
+    block_indices[0][0][0][1] = 32
     print(block_indices[0][0][0][0])
     print(block_indices[0][0][0][1])
 
