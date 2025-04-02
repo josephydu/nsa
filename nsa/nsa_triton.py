@@ -914,13 +914,14 @@ if __name__ == "__main__":
         f.write("tri data:\n")
         for x in tri.view(-1):  # Save first 1000 elements for demo
             f.write(f"{x.item():.6f}\n")
-            
+        print("=======================================================\n")
         # Save ref tensor
         f.write(f"\nref shape: {tuple(ref.shape)}\n")
         f.write("ref data:\n")
         for x in ref.view(-1):
             f.write(f"{x.item():.6f}\n")
             
+        print("=======================================================\n")
         # Save block_counts
         f.write("\nblock_counts:\n")
         if isinstance(block_counts, torch.Tensor):
