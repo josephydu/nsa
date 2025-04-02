@@ -295,7 +295,7 @@ def parallel_nsa_bwd_kernel_dkv(q, k, v, lse_slc, lse_swa, delta_slc, delta_swa,
                 # [BS, G]
                 b_ds_swa = b_p_swa * (b_dp_swa - b_delta_swa[None, :])
                 # [BS, G] @ [G, BK] -> [BS, BK]
-                b_dk += tl.dot(b_ds_swa.to(b_q.dtype), b_q)
+                tl.dot(b_ds_swa.to(b_q.dtype), b_q, b_dk)
 
     tl.store(p_dk, b_dk.to(p_dk.dtype.element_ty), boundary_check=(0, 1))
     tl.store(p_dv, b_dv.to(p_dv.dtype.element_ty), boundary_check=(0, 1))
@@ -496,8 +496,10 @@ def parallel_nsa_fwd_kernel(q, k, v, o_slc, o_swa, lse_slc, lse_swa, scale, bloc
 
     b_m_slc = tl.full([G], float('-inf'), dtype=tl.float32)
     b_acc_slc = tl.zeros([G], dtype=tl.float32)
+    flag = False
     for i in range(NS):
         i_s = tl.load(block_indices + i).to(tl.int32) * BS
+        flag = True
         if i_s <= i_t and i_s >= 0:
             p_k_slc = tl.make_block_ptr(k, (K, T), (1, H * K), (0, i_s), (BK, BS), (0, 1))
             p_v_slc = tl.make_block_ptr(v, (T, V), (H * V, 1), (i_s, i_v * BV), (BS, BV), (1, 0))
