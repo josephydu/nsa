@@ -32,6 +32,7 @@ loss.backward()
 
 print(k.grad)
 
+
 assert not torch.isnan(q.grad).any(), 'q.grad output has nan.'
 assert not torch.isnan(k.grad).any(), 'k.grad output has nan.'
 assert not torch.isnan(v.grad).any(), 'v.grad output has nan.'
