@@ -876,7 +876,7 @@ if __name__ == "__main__":
                 i_i = torch.randperm(max(1, (t // block_size)))[:S]
                 block_indices[b, t, h, :len(i_i)] = i_i
     block_indices = block_indices.sort(-1)[0]
-    print(block_indices)
+    print(block_indices.shape)
 
     block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
     # print(block_counts)
