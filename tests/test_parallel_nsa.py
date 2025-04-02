@@ -220,8 +220,6 @@ if __name__ == "__main__":
         block_size=block_size,
         block_counts=block_counts,
     )
-    print(tri)
-    print(ref)
     
     #NOTE: We replace nan in ref to 0.0 to match the result of tri and make bwd correct
     ref[torch.isnan(ref)] = 0.0
