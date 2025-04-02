@@ -141,9 +141,9 @@ def naive_nsa(q: torch.Tensor,
                 # Save tensor with row/column format
                 f.write("==================================attn_slc data==================================:\n")
                 # Write each head as a column
-                for head_idx in range(attn_slc.shape[1]):  # Iterate over HQ heads
+                for head_idx in range(attn_slc.shape[0]):  # Iterate over HQ heads
                     # Convert each row's value for this head to string
-                    row_values = [f"{x.item():.6f}" for x in attn_slc[:, head_idx]]
+                    row_values = [f"{x.item():.6f}" for x in attn_slc[head_idx, :]]
                     f.write(" ".join(row_values) + "\n")  # Write one line per head
                     
             print(attn_slc.shape)
@@ -152,9 +152,9 @@ def naive_nsa(q: torch.Tensor,
                 # Save tensor with row/column format
                 f.write("==================================attn_slc data==================================:\n")
                 # Write each head as a column
-                for head_idx in range(attn_slc.shape[1]):  # Iterate over HQ heads
+                for head_idx in range(attn_slc.shape[0]):  # Iterate over HQ heads
                     # Convert each row's value for this head to string
-                    row_values = [f"{x.item():.6f}" for x in attn_slc[:, head_idx]]
+                    row_values = [f"{x.item():.6f}" for x in attn_slc[head_idx, :]]
                     f.write(" ".join(row_values) + "\n")  # Write one line per head
             if not varlen:
                 o_slc[i, i_q] = torch.einsum('n h, n h v -> h v', attn_slc,
