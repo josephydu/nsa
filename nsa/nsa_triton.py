@@ -910,8 +910,8 @@ if __name__ == "__main__":
         block_counts=block_counts,
     )
     print(tri.shape)
-    print("tri", tri[:0])
-    print("ref", ref[:0])
+    print("tri", tri[1,1])
+    print("ref", ref[1,1])
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
