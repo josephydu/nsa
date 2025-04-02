@@ -295,7 +295,7 @@ def parallel_nsa_bwd_kernel_dkv(q, k, v, lse_slc, lse_swa, delta_slc, delta_swa,
                 # [BS, G]
                 b_ds_swa = b_p_swa * (b_dp_swa - b_delta_swa[None, :])
                 # [BS, G] @ [G, BK] -> [BS, BK]
-                tl.dot(b_ds_swa.to(b_q.dtype), b_q, b_dk)
+                b_dk += tl.dot(b_ds_swa.to(b_q.dtype), b_q)
 
     tl.store(p_dk, b_dk.to(p_dk.dtype.element_ty), boundary_check=(0, 1))
     tl.store(p_dv, b_dv.to(p_dv.dtype.element_ty), boundary_check=(0, 1))
@@ -496,10 +496,8 @@ def parallel_nsa_fwd_kernel(q, k, v, o_slc, o_swa, lse_slc, lse_swa, scale, bloc
 
     b_m_slc = tl.full([G], float('-inf'), dtype=tl.float32)
     b_acc_slc = tl.zeros([G], dtype=tl.float32)
-    flag = False
     for i in range(NS):
         i_s = tl.load(block_indices + i).to(tl.int32) * BS
-        flag = True
         if i_s <= i_t and i_s >= 0:
             p_k_slc = tl.make_block_ptr(k, (K, T), (1, H * K), (0, i_s), (BK, BS), (0, 1))
             p_v_slc = tl.make_block_ptr(v, (T, V), (H * V, 1), (i_s, i_v * BV), (BS, BV), (1, 0))
@@ -522,9 +520,8 @@ def parallel_nsa_fwd_kernel(q, k, v, o_slc, o_swa, lse_slc, lse_swa, scale, bloc
             b_o_slc = b_o_slc * b_r_slc[:, None] + tl.dot(b_p_slc.to(b_q.dtype), b_v_slc)
 
             b_mp_slc = b_m_slc
-    if flag:
-        b_o_slc = b_o_slc / b_acc_slc[:, None]
-        b_m_slc += tl.log(b_acc_slc)
+    b_o_slc = b_o_slc / b_acc_slc[:, None]
+    b_m_slc += tl.log(b_acc_slc)
     tl.store(p_o_slc, b_o_slc.to(p_o_slc.dtype.element_ty), boundary_check=(0, 1))
     tl.store(p_lse_slc, b_m_slc.to(p_lse_slc.dtype.element_ty))
 
@@ -864,7 +861,7 @@ def parallel_nsa(q: torch.Tensor,
 
 if __name__ == "__main__":
     B, T, H, HQ, D, S, block_size, dtype = 2, 64, 1, 16, 32, 1, 32, torch.float16
-    torch.random.manual_seed(42)
+    torch.random.manual_seed(0)
     q = torch.randn((B, T, HQ, D), dtype=dtype, device='cuda').requires_grad_(True)
     k = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
     v = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
@@ -881,7 +878,6 @@ if __name__ == "__main__":
     block_indices = block_indices.sort(-1)[0]
 
     block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
-    print(block_counts)
 
     ref = naive_nsa(
         q=q,
@@ -909,9 +905,8 @@ if __name__ == "__main__":
         block_size=block_size,
         block_counts=block_counts,
     )
-    print(tri.shape)
-    print("tri", tri[1,2])
-    print("ref", ref[1,2])
+    print("tri", tri)
+    print("ref", ref)
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
@@ -924,4 +919,3 @@ if __name__ == "__main__":
     torch.testing.assert_close(ref_dk, tri_dk, atol=1e-2, rtol=1e-2)
     torch.testing.assert_close(ref_dv, tri_dv, atol=1e-2, rtol=1e-2)
     torch.testing.assert_close(ref_dg_slc, tri_dg_slc, atol=1e-2, rtol=1e-2)
-    print("Test passed!")
