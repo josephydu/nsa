@@ -919,6 +919,8 @@ if __name__ == "__main__":
         block_counts=block_counts,
     )
     print("tri", tri.shape)
+    for i in range(64):
+        print(torch.sum(tri[0][i]))
     import pdb; pdb.set_trace()
     # print("ref", ref)
                 # with open('save.txt', 'a+') as f:
