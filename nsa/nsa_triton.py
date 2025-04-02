@@ -882,8 +882,8 @@ if __name__ == "__main__":
     block_indices = block_indices.sort(-1)[0]
     print(block_indices.shape)
     block_indices[0][0][0][0] = 4
-    block_indices[0][0][3][0] = 2
-    block_indices[0][0][7][0] = 10
+    block_indices[0][3][0][0] = 2
+    block_indices[0][7][0][0] = 10
     print(block_indices)
 
     block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
