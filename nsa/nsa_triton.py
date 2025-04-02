@@ -880,6 +880,7 @@ if __name__ == "__main__":
                 # print(i_i)
                 block_indices[b, t, h, :len(i_i)] = i_i
     block_indices = block_indices.sort(-1)[0]
+    print(block_indices.shape(name=None))
     block_indices[0][0][0][0] = 4
     block_indices[0][0][3][0] = 2
     block_indices[0][0][7][0] = 10
