@@ -138,10 +138,13 @@ def naive_nsa(q: torch.Tensor,
                 (c >= s_i if block_counts is not None else False), float('-inf'))
             
             with open('save.txt', 'a+') as f:
-                # Save tri tensor
+                # Save tensor with row/column format
                 f.write("==================================attn_slc data==================================:\n")
-                for x in attn_slc.view(-1):  # Save first 1000 elements for demo
-                    f.write(f"{x.item():.6f}\n")
+                # Write each head as a column
+                for head_idx in range(attn_slc.shape[1]):  # Iterate over HQ heads
+                    # Convert each row's value for this head to string
+                    row_values = [f"{x.item():.6f}" for x in attn_slc[:, head_idx]]
+                    f.write(" ".join(row_values) + "\n")  # Write one line per head
                     
             print(attn_slc.shape)
             attn_slc = attn_slc.softmax(dim=0)
