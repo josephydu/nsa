@@ -1,0 +1,1 @@
+from .selection_attn import parallel_nsa as selection_attention
