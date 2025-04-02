@@ -912,6 +912,7 @@ if __name__ == "__main__":
         block_counts=block_counts,
     )
     print("tri", tri.shape)
+    import pdb; pdb.set_trace()
     # print("ref", ref)
                 # with open('save.txt', 'a+') as f:
             #     # Save tensor with row/column format
