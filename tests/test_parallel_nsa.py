@@ -260,3 +260,5 @@ if __name__ == "__main__":
     torch.testing.assert_close(ref_dv, tri_dv, atol=1e-2, rtol=1e-2)
     torch.testing.assert_close(ref_dg_slc, tri_dg_slc, atol=1e-2, rtol=1e-2)
     
+    print("test passed")
+    
