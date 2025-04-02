@@ -266,10 +266,8 @@ if __name__ == "__main__":
     assert not torch.isnan(tri_dg_slc).any()
     
     # assert_close(" o", ref, tri, 0.004)
-    import pdb;
-    pdb.set_trace()
     torch.testing.assert_close(ref, tri, atol=1e-2, rtol=1e-2)
     torch.testing.assert_close(ref_dq, tri_dq, atol=1e-2, rtol=1e-2)
     torch.testing.assert_close(ref_dk, tri_dk, atol=1e-2, rtol=1e-2)
-    # torch.testing.assert_close(ref_dv, tri_dv, atol=1e-2, rtol=1e-2)
-    # torch.testing.assert_close(ref_dg_slc, tri_dg_slc, atol=1e-2, rtol=1e-2)
+    torch.testing.assert_close(ref_dv, tri_dv, atol=1e-2, rtol=1e-2)
+    torch.testing.assert_close(ref_dg_slc, tri_dg_slc, atol=1e-2, rtol=1e-2)
