@@ -245,6 +245,7 @@ if __name__ == "__main__":
     
     #NOTE: We replace nan in ref to 0.0 to match the result of tri and make bwd correct
     ref[torch.isnan(ref)] = 0.0
+    tri[torch.isnan(tri)] = 0.0
     
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
