@@ -135,7 +135,9 @@ def naive_nsa(q: torch.Tensor,
             # [S*BS, HQ]
             attn_slc = torch.einsum('h d, n h d -> n h', q_i, k_i_slc).masked_fill(
                 torch.logical_or(i_i < 0, i_i > i_q) |
-                (c >= s_i if block_counts is not None else False), float('-inf')).softmax(0)
+                (c >= s_i if block_counts is not None else False), float('-inf'))
+            print(attn_slc)
+            attn_slc = attn_slc.softmax(dim=0)
             if not varlen:
                 o_slc[i, i_q] = torch.einsum('n h, n h v -> h v', attn_slc,
                                              v_i_slc) * g_slc_i.unsqueeze(-1)

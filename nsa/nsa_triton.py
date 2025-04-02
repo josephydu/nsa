@@ -861,7 +861,7 @@ def parallel_nsa(q: torch.Tensor,
 
 if __name__ == "__main__":
     B, T, H, HQ, D, S, block_size, dtype = 2, 64, 1, 16, 32, 1, 32, torch.float16
-    torch.random.manual_seed(42)
+    torch.random.manual_seed(0)
     q = torch.randn((B, T, HQ, D), dtype=dtype, device='cuda').requires_grad_(True)
     k = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
     v = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
@@ -877,7 +877,7 @@ if __name__ == "__main__":
                 block_indices[b, t, h, :len(i_i)] = i_i
     block_indices = block_indices.sort(-1)[0]
 
-    block_counts = torch.randint(3, 4, (B, T, H), device='cuda')
+    block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
     print(block_counts)
 
     ref = naive_nsa(
@@ -906,29 +906,8 @@ if __name__ == "__main__":
         block_size=block_size,
         block_counts=block_counts,
     )
-    # print("tri", tri)
-    # print("ref", ref)
-    with open('save.txt', 'w') as f:
-        f.write(f"tri shape: {tuple(tri.shape)}\n")
-        f.write("tri data:\n")
-        for x in tri.view(-1):  # Save first 1000 elements for demo
-            f.write(f"{x.item():.6f}\n")
-        print("=======================================================\n")
-        # Save ref tensor
-        f.write(f"\nref shape: {tuple(ref.shape)}\n")
-        f.write("ref data:\n")
-        for x in ref.view(-1):
-            f.write(f"{x.item():.6f}\n")
-            
-        print("=======================================================\n")
-        # Save block_counts
-        f.write("\nblock_counts:\n")
-        if isinstance(block_counts, torch.Tensor):
-            f.write(f"shape: {tuple(block_counts.shape)}\n")
-            for x in block_counts.view(-1):
-                f.write(f"{x.item()}\n")
-        else:
-            f.write(f"scalar value: {block_counts}\n")
+    print("tri", tri)
+    print("ref", ref)
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
