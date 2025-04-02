@@ -905,8 +905,28 @@ if __name__ == "__main__":
         block_size=block_size,
         block_counts=block_counts,
     )
-    print("tri", tri)
-    print("ref", ref)
+    # print("tri", tri)
+    # print("ref", ref)
+    with open('save.txt', 'w') as f:
+        f.write(f"tri shape: {tuple(tri.shape)}\n")
+        f.write("tri data:\n")
+        for x in tri.view(-1):  # Save first 1000 elements for demo
+            f.write(f"{x.item():.6f}\n")
+            
+        # Save ref tensor
+        f.write(f"\nref shape: {tuple(ref.shape)}\n")
+        f.write("ref data:\n")
+        for x in ref.view(-1):
+            f.write(f"{x.item():.6f}\n")
+            
+        # Save block_counts
+        f.write("\nblock_counts:\n")
+        if isinstance(block_counts, torch.Tensor):
+            f.write(f"shape: {tuple(block_counts.shape)}\n")
+            for x in block_counts.view(-1):
+                f.write(f"{x.item()}\n")
+        else:
+            f.write(f"scalar value: {block_counts}\n")
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
