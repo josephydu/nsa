@@ -146,7 +146,7 @@ def naive_nsa(q: torch.Tensor,
             #         row_values = [f"{x.item():.6f}" for x in attn_slc[head_idx, :]]
             #         f.write(" ".join(row_values) + "\n")  # Write one line per head
                     
-            print(attn_slc.shape)
+            # print(attn_slc.shape)
             attn_slc = attn_slc.softmax(dim=0)
             # with open('save_sftmx.txt', 'a+') as f:
             #     # Save tensor with row/column format
