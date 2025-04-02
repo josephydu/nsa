@@ -136,6 +136,13 @@ def naive_nsa(q: torch.Tensor,
             attn_slc = torch.einsum('h d, n h d -> n h', q_i, k_i_slc).masked_fill(
                 torch.logical_or(i_i < 0, i_i > i_q) |
                 (c >= s_i if block_counts is not None else False), float('-inf'))
+            
+            with open('save.txt', 'a+') as f:
+                # Save tri tensor
+                f.write("==================================attn_slc data==================================:\n")
+                for x in attn_slc.view(-1):  # Save first 1000 elements for demo
+                    f.write(f"{x.item():.6f}\n")
+                    
             print(attn_slc.shape)
             attn_slc = attn_slc.softmax(dim=0)
             if not varlen:
