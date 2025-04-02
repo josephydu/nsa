@@ -905,8 +905,8 @@ if __name__ == "__main__":
         block_size=block_size,
         block_counts=block_counts,
     )
-    print("tri", tri)
-    print("ref", ref)
+    # print("tri", tri)
+    # print("ref", ref)
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
@@ -919,3 +919,4 @@ if __name__ == "__main__":
     torch.testing.assert_close(ref_dk, tri_dk, atol=1e-2, rtol=1e-2)
     torch.testing.assert_close(ref_dv, tri_dv, atol=1e-2, rtol=1e-2)
     torch.testing.assert_close(ref_dg_slc, tri_dg_slc, atol=1e-2, rtol=1e-2)
+    print("Test passed!")
