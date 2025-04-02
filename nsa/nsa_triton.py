@@ -881,7 +881,7 @@ if __name__ == "__main__":
     block_indices = block_indices.sort(-1)[0]
 
     block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
-    print(block_counts)
+    # print(block_counts)
 
     ref = naive_nsa(
         q=q,
@@ -909,8 +909,9 @@ if __name__ == "__main__":
         block_size=block_size,
         block_counts=block_counts,
     )
-    # print("tri", tri)
-    # print("ref", ref)
+    print(tri.shape)
+    print("tri", tri[:0])
+    print("ref", ref[:0])
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
