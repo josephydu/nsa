@@ -218,8 +218,6 @@ if __name__ == "__main__":
     ref_dg_slc[0][0] = 0.0
     ref_dg_slc[1][-1] = 0.0
     ref_dg_slc[1][-1] = 0.0
-    import pdb;
-    pdb.set_trace()
     
     tri = selection_attention(
         q=q,
