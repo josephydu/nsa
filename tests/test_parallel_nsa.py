@@ -206,12 +206,13 @@ if __name__ == "__main__":
     ref[1][63] = 0.0
     
     ref.backward(do)
-    print(ref)
     ref_dq, q.grad = q.grad.clone(), None
     ref_dk, k.grad = k.grad.clone(), None
     ref_dv, v.grad = v.grad.clone(), None
     ref_dg_slc, g_slc.grad = g_slc.grad.clone(), None
-
+    import pdb;
+    pdb.set_trace()
+    
     tri = selection_attention(
         q=q,
         k=k,
