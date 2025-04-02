@@ -252,6 +252,8 @@ if __name__ == "__main__":
     tri_dv, v.grad = v.grad.clone(), None
     tri_dg_slc, g_slc.grad = g_slc.grad.clone(), None
 
+    import pdb;
+    pdb.set_trace()
     # assert not torch.any(torch.isnan(ref))
     # assert not torch.any(torch.isnan(ref_dq))
     # assert not torch.any(torch.isnan(ref_dk))
