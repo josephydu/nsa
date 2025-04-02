@@ -911,8 +911,16 @@ if __name__ == "__main__":
         block_size=block_size,
         block_counts=block_counts,
     )
-    print("tri", tri)
-    print("ref", ref)
+    print("tri", tri.shape)
+    # print("ref", ref)
+                # with open('save.txt', 'a+') as f:
+            #     # Save tensor with row/column format
+            #     f.write("==================================attn_slc data==================================:\n")
+            #     # Write each head as a column
+            #     for head_idx in range(attn_slc.shape[0]):  # Iterate over HQ heads
+            #         # Convert each row's value for this head to string
+            #         row_values = [f"{x.item():.6f}" for x in attn_slc[head_idx, :]]
+            #         f.write(" ".join(row_values) + "\n")  # Write one line per head
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
