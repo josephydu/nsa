@@ -860,7 +860,7 @@ def parallel_nsa(q: torch.Tensor,
 
 
 if __name__ == "__main__":
-    B, T, H, HQ, D, S, block_size, dtype = 2, 64, 1, 16, 32, 1, 32, torch.float16
+    B, T, H, HQ, D, S, block_size, dtype = 2, 64, 1, 16, 32, 4, 32, torch.float16
     # torch.random.manual_seed(84831)
     q = torch.randn((B, T, HQ, D), dtype=dtype, device='cuda').requires_grad_(True)
     k = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
@@ -877,7 +877,7 @@ if __name__ == "__main__":
                 block_indices[b, t, h, :len(i_i)] = i_i
     block_indices = block_indices.sort(-1)[0]
 
-    block_counts = torch.randint(6, 10, (B, T, H), device='cuda')
+    block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
     print(block_counts)
 
     ref = naive_nsa(
