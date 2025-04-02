@@ -716,6 +716,7 @@ class ParallelNSAFunction(torch.autograd.Function):
     @contiguous
     @autocast_custom_bwd
     def backward(ctx, do_slc, do_swa):
+        print("selection bwd start..")
         q, k, v, o_slc, lse_slc, o_swa, lse_swa = ctx.saved_tensors
         dq, dk, dv = parallel_nsa_bwd(
             q=q,
@@ -734,9 +735,9 @@ class ParallelNSAFunction(torch.autograd.Function):
             scale=ctx.scale,
             offsets=ctx.offsets,
             token_indices=ctx.token_indices)
-        torch.isnan(dq).any()
-        torch.isnan(dk).any()
-        torch.isnan(dv).any()
+        assert not torch.isnan(dq).any()
+        assert not torch.isnan(dk).any()
+        assert not torch.isnan(dv).any()
         return dq.to(q), dk.to(k), dv.to(v), None, None, None, None, None, None, None, None
 
 

@@ -30,7 +30,7 @@ assert not torch.isnan(o).any(), 'forward output has nan.'
 loss = (o * o).sum()
 loss.backward()
 
-print(k.grad)
+# print(k.grad)
 
 
 assert not torch.isnan(q.grad).any(), 'q.grad output has nan.'
