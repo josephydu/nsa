@@ -878,6 +878,7 @@ if __name__ == "__main__":
     block_indices = block_indices.sort(-1)[0]
 
     block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
+    block_counts = torch.arange(64).repeat(2,64,1)
     print(block_counts)
 
     ref = naive_nsa(
