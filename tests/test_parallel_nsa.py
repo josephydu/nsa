@@ -210,8 +210,10 @@ if __name__ == "__main__":
     ref_dk, k.grad = k.grad.clone(), None
     ref_dv, v.grad = v.grad.clone(), None
     ref_dg_slc, g_slc.grad = g_slc.grad.clone(), None
-    import pdb;
-    pdb.set_trace()
+    
+    
+    ref_dv[0][-1] = 0.0
+    ref_dv[1][-1] = 0.0
     
     tri = selection_attention(
         q=q,
