@@ -220,8 +220,9 @@ if __name__ == "__main__":
     #NOTE: We replace nan in ref to 0.0 to match the result of tri and make bwd correct
     # Use silice instead of in-place
     # ref[torch.isnan(ref)] = 0.0
-    print()
-    
+    import pdb;
+    pdb.set_trace()
+
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
