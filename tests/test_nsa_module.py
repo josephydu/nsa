@@ -27,7 +27,7 @@ attn = NSAAttention(head_dim, 0, True, None, 0, device=device, dtype=dtype)
 o = attn(q, k, v, cu_seq_len, 0, causal=True)
 assert not torch.isnan(o).any(), 'forward output has nan.'
 
-loss = o.sum()
+loss = (o * o).sum()
 loss.backward()
 
 print(k.grad)
