@@ -781,7 +781,7 @@ class ParallelNSAFunction(torch.autograd.Function):
         return dq.to(q), dk.to(k), dv.to(v), None, None, None, None, None, None, None, None
 
 
-def parallel_nsa(q: torch.Tensor,
+def parallel_nsa_tile(q: torch.Tensor,
                  k: torch.Tensor,
                  v: torch.Tensor,
                  g_slc: torch.Tensor,
