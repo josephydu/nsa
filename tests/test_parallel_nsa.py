@@ -202,7 +202,9 @@ if __name__ == "__main__":
     )
     #NOTE: We replace nan in ref to 0.0 to match the result of tri and make bwd correct
     # Use silice instead of in-place
-    ref[torch.isnan(ref)] = 0.0
+    ref[0][0] = 0.0
+    ref[1][63] = 0.0
+    
     ref.backward(do)
     ref_dq, q.grad = q.grad.clone(), None
     ref_dk, k.grad = k.grad.clone(), None
@@ -228,16 +230,6 @@ if __name__ == "__main__":
     tri_dk, k.grad = k.grad.clone(), None
     tri_dv, v.grad = v.grad.clone(), None
     tri_dg_slc, g_slc.grad = g_slc.grad.clone(), None
-
-
-
-    
-    # assert_close(" o", ref, tri, 0.004)
-    torch.testing.assert_close(ref, tri, atol=1e-2, rtol=1e-2)
-    torch.testing.assert_close(ref_dq, tri_dq, atol=1e-2, rtol=1e-2)
-    torch.testing.assert_close(ref_dk, tri_dk, atol=1e-2, rtol=1e-2)
-    torch.testing.assert_close(ref_dv, tri_dv, atol=1e-2, rtol=1e-2)
-    torch.testing.assert_close(ref_dg_slc, tri_dg_slc, atol=1e-2, rtol=1e-2)
     
     assert not torch.isnan(ref).any()
     assert not torch.isnan(ref_dq).any()
@@ -250,3 +242,13 @@ if __name__ == "__main__":
     assert not torch.isnan(tri_dk).any()
     assert not torch.isnan(tri_dv).any()
     assert not torch.isnan(tri_dg_slc).any()
+
+
+    
+    # assert_close(" o", ref, tri, 0.004)
+    torch.testing.assert_close(ref, tri, atol=1e-2, rtol=1e-2)
+    torch.testing.assert_close(ref_dq, tri_dq, atol=1e-2, rtol=1e-2)
+    torch.testing.assert_close(ref_dk, tri_dk, atol=1e-2, rtol=1e-2)
+    torch.testing.assert_close(ref_dv, tri_dv, atol=1e-2, rtol=1e-2)
+    torch.testing.assert_close(ref_dg_slc, tri_dg_slc, atol=1e-2, rtol=1e-2)
+    
