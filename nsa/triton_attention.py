@@ -512,14 +512,41 @@ def _attn_bwd_only_dq(Q, K, V, sm_scale,  #
 
     # stage 2
     num_steps = end_n // BLOCK_N2
-    dq = _attn_bwd_dq(dq, q, K, V,  #
-                      do, m, D,  #
-                      stride_tok, stride_d,  #
-                      H, Q_CTX,  #
-                      BLOCK_M2, BLOCK_N2, HEAD_DIM,  #
-                      start_m, 0, num_steps,  #
-                      MASK=False  #
-                      )
+    start_n = 0
+    MASK = False
+    offs_m = start_m + tl.arange(0, BLOCK_M2)
+    offs_n = start_n + tl.arange(0, BLOCK_N2)
+    offs_k = tl.arange(0, HEAD_DIM)
+    kT_ptrs = K + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
+    vT_ptrs = V + offs_n[None, :] * stride_tok + offs_k[:, None] * stride_d
+    # D (= delta) is pre-divided by ds_scale.
+    Di = tl.load(D + offs_m*H)
+    # BLOCK_M2 must be a multiple of BLOCK_N2, otherwise the code wouldn't work.
+    tl.static_assert(BLOCK_M2 % BLOCK_N2 == 0)
+    curr_n = start_n
+    step_n = BLOCK_N2
+    for blk_idx in range(num_steps):
+        kT = tl.load(kT_ptrs)
+        vT = tl.load(vT_ptrs)
+        qk = tl.dot(q, kT)
+        p = tl.math.exp2(qk - m)
+        # Autoregressive masking.
+        if MASK:
+            offs_n = curr_n + tl.arange(0, BLOCK_N2)
+            mask = (offs_m[:, None] >= offs_n[None, :])
+            p = tl.where(mask, p, 0.0)
+        # Compute dP and dS.
+        dp = tl.dot(do, vT).to(tl.float32)
+        ds = p * (dp - Di[:, None])
+        ds = ds.to(q.dtype)
+        # Compute dQ.
+        # NOTE: We need to de-scale dq in the end, because kT was pre-scaled.
+        dq += tl.dot(ds, tl.trans(kT))
+        # Increment pointers.
+        curr_n += step_n
+        kT_ptrs += step_n * stride_tok
+        vT_ptrs += step_n * stride_tok
+
     # Write back dQ.
     dq_ptrs = DQ + offs_m[:, None] * stride_tok + offs_k[None, :] * stride_d
     dq *= LN2
