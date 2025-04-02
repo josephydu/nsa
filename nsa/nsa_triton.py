@@ -864,7 +864,7 @@ def parallel_nsa(q: torch.Tensor,
 
 if __name__ == "__main__":
     B, T, H, HQ, D, S, block_size, dtype = 2, 64, 1, 16, 32, 1, 32, torch.float16
-    # torch.random.manual_seed(0)
+    torch.random.manual_seed(0)
     q = torch.randn((B, T, HQ, D), dtype=dtype, device='cuda').requires_grad_(True)
     k = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
     v = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
@@ -881,7 +881,6 @@ if __name__ == "__main__":
     block_indices = block_indices.sort(-1)[0]
 
     block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
-    block_counts = torch.zeros_like(block_counts)
     print(block_counts)
 
     ref = naive_nsa(
@@ -911,8 +910,8 @@ if __name__ == "__main__":
         block_counts=block_counts,
     )
     print(tri.shape)
-    print("tri", tri[1,1])
-    print("ref", ref[1,1])
+    print("tri", tri[1,2])
+    print("ref", ref[1,2])
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
     tri_dk, k.grad = k.grad.clone(), None
