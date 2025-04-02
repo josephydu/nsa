@@ -137,25 +137,25 @@ def naive_nsa(q: torch.Tensor,
                 torch.logical_or(i_i < 0, i_i > i_q) |
                 (c >= s_i if block_counts is not None else False), float('-inf'))
             
-            with open('save.txt', 'a+') as f:
-                # Save tensor with row/column format
-                f.write("==================================attn_slc data==================================:\n")
-                # Write each head as a column
-                for head_idx in range(attn_slc.shape[0]):  # Iterate over HQ heads
-                    # Convert each row's value for this head to string
-                    row_values = [f"{x.item():.6f}" for x in attn_slc[head_idx, :]]
-                    f.write(" ".join(row_values) + "\n")  # Write one line per head
+            # with open('save.txt', 'a+') as f:
+            #     # Save tensor with row/column format
+            #     f.write("==================================attn_slc data==================================:\n")
+            #     # Write each head as a column
+            #     for head_idx in range(attn_slc.shape[0]):  # Iterate over HQ heads
+            #         # Convert each row's value for this head to string
+            #         row_values = [f"{x.item():.6f}" for x in attn_slc[head_idx, :]]
+            #         f.write(" ".join(row_values) + "\n")  # Write one line per head
                     
             print(attn_slc.shape)
             attn_slc = attn_slc.softmax(dim=0)
-            with open('save_sftmx.txt', 'a+') as f:
-                # Save tensor with row/column format
-                f.write("==================================attn_slc data==================================:\n")
-                # Write each head as a column
-                for head_idx in range(attn_slc.shape[0]):  # Iterate over HQ heads
-                    # Convert each row's value for this head to string
-                    row_values = [f"{x.item():.6f}" for x in attn_slc[head_idx, :]]
-                    f.write(" ".join(row_values) + "\n")  # Write one line per head
+            # with open('save_sftmx.txt', 'a+') as f:
+            #     # Save tensor with row/column format
+            #     f.write("==================================attn_slc data==================================:\n")
+            #     # Write each head as a column
+            #     for head_idx in range(attn_slc.shape[0]):  # Iterate over HQ heads
+            #         # Convert each row's value for this head to string
+            #         row_values = [f"{x.item():.6f}" for x in attn_slc[head_idx, :]]
+            #         f.write(" ".join(row_values) + "\n")  # Write one line per head
             if not varlen:
                 o_slc[i, i_q] = torch.einsum('n h, n h v -> h v', attn_slc,
                                              v_i_slc) * g_slc_i.unsqueeze(-1)
