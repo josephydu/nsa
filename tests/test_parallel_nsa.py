@@ -187,7 +187,7 @@ def naive_nsa(q: torch.Tensor,
 
 if __name__ == "__main__":
     B, T, H, HQ, D, S, block_size, dtype = 2, 64, 1, 16, 32, 2, 32, torch.float16
-    # torch.random.manual_seed(84831)
+    torch.random.manual_seed(0)
     q = torch.randn((B, T, HQ, D), dtype=dtype, device='cuda').requires_grad_(True)
     k = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
     v = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
