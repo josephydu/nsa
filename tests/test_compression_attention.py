@@ -46,11 +46,11 @@ def test_no_causal():
     k_ref_t = k_ref.reshape(bs, seq_len, num_kv_head, head_dim)
     v_ref_t = v_ref.reshape(bs, seq_len, num_kv_head, head_dim)
 
-    ref_o, ref_s = attention_ref(q_ref_t, k_ref_t, v_ref_t, compress_block_stride, compress_block_size, causal=False, scale=None)
+    ref_o, ref_s = attention_ref(q_ref_t, k_ref_t, v_ref_t, compress_block_stride, compress_block_size, causal=False, scale=1.0)
     ref_loss = (ref_o*ref_o + 0.1*(ref_s*ref_s).sum()).sum()
     ref_loss.backward()
 
-    o, s = flash_attn_func(q_t, k_t, v_t, compress_block_stride, compress_block_size, False, None)
+    o, s = flash_attn_func(q_t, k_t, v_t, compress_block_stride, compress_block_size, False, 1.0)
     torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
     loss = (o*o + 0.1*(s*s).sum()).sum()
     loss.backward()
@@ -81,12 +81,12 @@ def test_causal():
 
     ref_o, ref_s = attention_ref(q_ref_t, ck_ref, cv_ref, compress_block_stride, compress_block_size, causal=True, scale=None)
 
-    ref_loss = (ref_o*ref_o).sum()
+    ref_loss = (ref_o*ref_o+0.1*(ref_s*ref_s).sum()).sum()
     ref_loss.backward()
 
     o, s = flash_attn_func(q_t, ck, cv, compress_block_stride, compress_block_size, True, None)
     torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
-    loss = (o*o).sum()
+    loss = (o*o+0.1*(s*s).sum()).sum()
     loss.backward()
     diff = (q.grad-q_ref.grad)/q_ref.grad
     try:
