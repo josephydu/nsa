@@ -52,7 +52,7 @@ def test_no_causal():
 
     o, s = flash_attn_func(q_t, k_t, v_t, compress_block_stride, compress_block_size, False, None)
     torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
-    loss = (o*o + 0.1*(s*s).sum()).sum()
+    loss = (o*o + (s*s).sum()).sum()
     loss.backward()
 
     torch.testing.assert_close(v.grad, v_ref.grad, rtol=3e-2, atol=3e-2)
