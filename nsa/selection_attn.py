@@ -243,15 +243,15 @@ def parallel_nsa_bwd_kernel_dkv(q, k, v, lse_slc, lse_swa, delta_slc, delta_swa,
                 b_p_swa = tl.exp(b_s_swa - b_lse_swa[None, :])
                 b_p_swa = tl.where((i >= o_s and (i - WS) < o_s)[:, None], b_p_swa, 0)
                 # [BS, G] @ [G, BV] -> [BS, BV]
-                b_dv += tl.dot(b_p_swa.to(b_do_swa.dtype), b_do_swa)
-                # tl.dot(b_p_swa.to(b_do_swa.dtype), b_do_swa, b_dv)
+                # b_dv += tl.dot(b_p_swa.to(b_do_swa.dtype), b_do_swa)
+                tl.dot(b_p_swa.to(b_do_swa.dtype), b_do_swa, b_dv)
                 # [BS, BV] @ [BV, G] -> [BS, G]
                 b_dp_swa = tl.dot(b_v, tl.trans(b_do_swa))
                 # [BS, G]
                 b_ds_swa = b_p_swa * (b_dp_swa - b_delta_swa[None, :])
                 # [BS, G] @ [G, BK] -> [BS, BK]
-                b_dk += tl.dot(b_ds_swa.to(b_q.dtype), b_q)
-                # tl.dot(b_ds_swa.to(b_q.dtype), b_q, b_dk)
+                # b_dk += tl.dot(b_ds_swa.to(b_q.dtype), b_q)
+                tl.dot(b_ds_swa.to(b_q.dtype), b_q, b_dk)
 
     tl.store(p_dk, b_dk.to(p_dk.dtype.element_ty), boundary_check=(0, 1))
     tl.store(p_dv, b_dv.to(p_dv.dtype.element_ty), boundary_check=(0, 1))
