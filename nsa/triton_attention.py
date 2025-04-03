@@ -490,15 +490,15 @@ class _attention(torch.autograd.Function):
         
         if ds is not None:
             # Recompute s
-            s = torch.einsum("bthd, bshd->bhts", q, k)
+            s = torch.einsum("bthd, bshd->bhts", q, k) 
             s = torch.nn.functional.softmax(s, dim=-1)
             
             # backward softmax
-            ds = ds * s * (1 - s)
+            ds = ds * s * (1-s) - (ds*s).sum(-1, keepdim=True) * s
             
             # backward einsum
-            dq += torch.einsum("bhts,bshd->bthd", ds, k.to(ds.dtype)) * ctx.sm_scale
-            dk += torch.einsum("bhts,bthd->bshd", ds, q.to(ds.dtype)) * ctx.sm_scale
+            dq += torch.einsum("bhts,bshd->bthd", ds, k.to(ds.dtype))
+            dk += torch.einsum("bhts,bthd->bshd", ds, q.to(ds.dtype))
         return dq, dk, dv, None, None, None, None
 
 
