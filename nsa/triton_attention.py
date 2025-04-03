@@ -490,6 +490,7 @@ class _attention(torch.autograd.Function):
         
         if ds is not None:
             print("ds bwd!")
+            print(ds)
             # Recompute s
             s = torch.einsum("bthd, bshd->bhts", q, k) 
             s = torch.nn.functional.softmax(s, dim=-1)
