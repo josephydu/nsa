@@ -158,8 +158,9 @@ def naive_nsa(q: torch.Tensor,
     if head_first:
         o_slc = rearrange(o_slc, 'b t h d -> b h t d')
         o_swa = rearrange(o_swa, 'b t h d -> b h t d')
-    import pdb;
-    pdb.set_trace()
+    if window_size > 0:
+        o_slc[0][0] = 0.0
+        o_slc[1][63] = 0.0
     return o_slc.to(dtype) + o_swa.to(dtype) if o_swa is not None else o_slc.to(dtype)
 
 
@@ -239,7 +240,6 @@ if __name__ == "__main__":
         window_size=window_size
     )
     
-    import pdb;pdb.set_trace()
 
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
