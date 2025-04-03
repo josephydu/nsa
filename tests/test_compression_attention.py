@@ -93,14 +93,9 @@ def test_causal():
     loss = (o*o+0.1*(s*s).sum()).sum()
     loss.backward()
     diff = (q.grad-q_ref.grad)/q_ref.grad
-    try:
-        torch.testing.assert_close(v.grad, v_ref.grad, rtol=3e-2, atol=3e-2)
-    except Exception as e:
-        print(e)
-    try:
-        torch.testing.assert_close(k.grad, k_ref.grad, rtol=3e-2, atol=3e-2)
-    except Exception as e:
-        print(e)
+    torch.testing.assert_close(v.grad, v_ref.grad, rtol=3e-2, atol=3e-2)
+    torch.testing.assert_close(k.grad, k_ref.grad, rtol=3e-2, atol=3e-2)
+    print(e)
     #torch.testing.assert_close(q.grad, q_ref.grad, rtol=3e-2, atol=3e-2)
     print('PASS CAUSAL')
 
