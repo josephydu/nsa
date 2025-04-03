@@ -57,9 +57,11 @@ def parallel_nsa_fwd_kernel(q, k, v, o_slc, o_swa, lse_slc, lse_swa, scale, bloc
 
     b_m_slc = tl.full([G], float('-inf'), dtype=tl.float32)
     b_acc_slc = tl.zeros([G], dtype=tl.float32)
+    flag = False
     for i in range(NS):
         i_s = tl.load(block_indices + i).to(tl.int32) * BS
         if i_s <= i_t and i_s >= 0:
+            flag = True
             p_k_slc = tl.make_block_ptr(k, (K, T), (1, H * K), (0, i_s), (BK, BS), (0, 1))
             p_v_slc = tl.make_block_ptr(v, (T, V), (H * V, 1), (i_s, i_v * BV), (BS, BV), (1, 0))
             # [BK, BS]
@@ -81,8 +83,9 @@ def parallel_nsa_fwd_kernel(q, k, v, o_slc, o_swa, lse_slc, lse_swa, scale, bloc
             b_o_slc = b_o_slc * b_r_slc[:, None] + tl.dot(b_p_slc.to(b_q.dtype), b_v_slc)
 
             b_mp_slc = b_m_slc
-    b_o_slc = b_o_slc / b_acc_slc[:, None]
-    b_m_slc += tl.log(b_acc_slc)
+    if flag:
+        b_o_slc = b_o_slc / b_acc_slc[:, None]
+        b_m_slc += tl.log(b_acc_slc)
     tl.store(p_o_slc, b_o_slc.to(p_o_slc.dtype.element_ty), boundary_check=(0, 1))
     tl.store(p_lse_slc, b_m_slc.to(p_lse_slc.dtype.element_ty))
 
