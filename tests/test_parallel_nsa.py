@@ -158,7 +158,8 @@ def naive_nsa(q: torch.Tensor,
     if head_first:
         o_slc = rearrange(o_slc, 'b t h d -> b h t d')
         o_swa = rearrange(o_swa, 'b t h d -> b h t d')
-
+    import pdb;
+    pdb.set_trace()
     return o_slc.to(dtype) + o_swa.to(dtype) if o_swa is not None else o_slc.to(dtype)
 
 
@@ -204,9 +205,10 @@ if __name__ == "__main__":
     )
     #NOTE: We replace nan in ref to 0.0 to match the result of tri and make bwd correct
     # Use silice instead of in-place
-    # ref[torch.isnan(ref)] = 0.0
-    # ref[0][0] = 0.0
-    # ref[1][63] = 0.0
+    # if window_size > 0, we set this before local attentnion
+    if window_size == 0:
+        ref[0][0] = 0.0
+        ref[1][63] = 0.0
     
     ref.backward(do)
     ref_dq, q.grad = q.grad.clone(), None
