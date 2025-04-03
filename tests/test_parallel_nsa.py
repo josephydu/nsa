@@ -167,7 +167,7 @@ def naive_nsa(q: torch.Tensor,
 
 if __name__ == "__main__":
     B, T, H, HQ, D, S, block_size, dtype = 2, 64, 1, 16, 32, 2, 32, torch.float16
-    window_size = 128
+    window_size = 2
     torch.random.manual_seed(0)
     q = torch.randn((B, T, HQ, D), dtype=dtype, device='cuda').requires_grad_(True)
     k = torch.randn((B, T, H, D), dtype=dtype, device='cuda').requires_grad_(True)
@@ -200,6 +200,7 @@ if __name__ == "__main__":
         block_indices=block_indices,
         block_counts=block_counts,
         block_size=block_size,
+        window_size=window_size
     )
     #NOTE: We replace nan in ref to 0.0 to match the result of tri and make bwd correct
     # Use silice instead of in-place
@@ -229,6 +230,7 @@ if __name__ == "__main__":
         block_indices=block_indices,
         block_size=block_size,
         block_counts=block_counts,
+        window_size=window_size
     )
     
 
