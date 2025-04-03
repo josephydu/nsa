@@ -56,6 +56,8 @@ def test_no_causal():
     loss.backward()
 
     torch.testing.assert_close(v.grad, v_ref.grad, rtol=3e-2, atol=3e-2)
+    import pdb;
+    pdb.set_trace()
     torch.testing.assert_close(k.grad, k_ref.grad, rtol=3e-2, atol=3e-2)
     torch.testing.assert_close(q.grad, q_ref.grad, rtol=3e-2, atol=3e-2)
     torch.testing.assert_close(s, ref_s, rtol=1e-2, atol=1e-2)
