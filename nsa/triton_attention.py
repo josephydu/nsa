@@ -497,8 +497,8 @@ class _attention(torch.autograd.Function):
             ds = ds * s * (1 - s)
             
             # backward einsum
-            dq += torch.einsum("bhts,bshd->bthd", ds, k)
-            dk += torch.einsum("bhts,bthd->bshd", ds, q)
+            dq += torch.einsum("bhts,bshd->bthd", ds, k.to(ds.dtype))
+            dk += torch.einsum("bhts,bthd->bshd", ds, q.to(ds.dtype))
         return dq, dk, dv, None, None, None, None
 
 
