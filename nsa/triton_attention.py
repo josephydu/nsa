@@ -495,7 +495,7 @@ class _attention(torch.autograd.Function):
             s = torch.nn.functional.softmax(s, dim=-1)
             
             # backward softmax
-            ds = ds * s * (1 - s)
+            ds * s * (1-s) - (ds*s).sum(-1, keepdim=True) * s
             
             # backward einsum
             dq += torch.einsum("bhts,bshd->bthd", ds, k.to(ds.dtype))
