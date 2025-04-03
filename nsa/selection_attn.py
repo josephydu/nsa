@@ -210,15 +210,15 @@ def parallel_nsa_bwd_kernel_dkv(q, k, v, lse_slc, lse_swa, delta_slc, delta_swa,
             b_p_slc = tl.exp(b_s_slc - b_lse_slc[None, :])
             b_p_slc = tl.where((i >= (i_s * BS + tl.arange(0, BS)))[:, None], b_p_slc, 0)
             # [BS, G] @ [G, BV] -> [BS, BV]
-            # b_dv += tl.dot(b_p_slc.to(b_do_slc.dtype), b_do_slc)
-            tl.dot(b_p_slc.to(b_do_slc.dtype), b_do_slc, b_dv)
+            b_dv += tl.dot(b_p_slc.to(b_do_slc.dtype), b_do_slc)
+            # tl.dot(b_p_slc.to(b_do_slc.dtype), b_do_slc, b_dv)
             # [BS, BV] @ [BV, G] -> [BS, G]
             b_dp_slc = tl.dot(b_v, tl.trans(b_do_slc))
             # [BS, G]
             b_ds_slc = b_p_slc * (b_dp_slc - b_delta_slc[None, :])
             # [BS, G] @ [G, BK] -> [BS, BK]
-            # b_dk += tl.dot(b_ds_slc.to(b_q.dtype), b_q)
-            tl.dot(b_ds_slc.to(b_q.dtype), b_q, b_dk)
+            b_dk += tl.dot(b_ds_slc.to(b_q.dtype), b_q)
+            # tl.dot(b_ds_slc.to(b_q.dtype), b_q, b_dk)
 
         if WS > 0:
             o_s = i_s * BS + tl.arange(0, BS)
