@@ -55,7 +55,7 @@ def test_no_causal():
     loss = (o*o).sum() + (s*s).sum()
     loss.backward()
 
-    torch.testing.assert_close(kt.grad, k.grad, rtol=3e-2, atol=3e-2)
+    torch.testing.assert_close(kt.grad.reshape(-1, kt.shape[2:]), k.grad, rtol=3e-2, atol=3e-2)
     torch.testing.assert_close(v.grad, v_ref.grad, rtol=3e-2, atol=3e-2)
     
     torch.testing.assert_close(k.grad, k_ref.grad, rtol=3e-2, atol=3e-2)
