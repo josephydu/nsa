@@ -204,7 +204,7 @@ if __name__ == "__main__":
     )
     #NOTE: We replace nan in ref to 0.0 to match the result of tri and make bwd correct
     # Use silice instead of in-place
-    ref[torch.isnan(ref)] = 0.0
+    # ref[torch.isnan(ref)] = 0.0
     # ref[0][0] = 0.0
     # ref[1][63] = 0.0
     
@@ -214,10 +214,10 @@ if __name__ == "__main__":
     ref_dv, v.grad = v.grad.clone(), None
     ref_dg_slc, g_slc.grad = g_slc.grad.clone(), None
     
-    ref_dq[torch.isnan(ref_dq)] = 0.0
-    ref_dk[torch.isnan(ref_dk)] = 0.0
-    ref_dv[torch.isnan(ref_dv)] = 0.0
-    ref_dg_slc[torch.isnan(ref_dg_slc)] = 0.0
+    # ref_dq[torch.isnan(ref_dq)] = 0.0
+    # ref_dk[torch.isnan(ref_dk)] = 0.0
+    # ref_dv[torch.isnan(ref_dv)] = 0.0
+    # ref_dg_slc[torch.isnan(ref_dg_slc)] = 0.0
     # ref_dv[0][-1] = 0.0
     # ref_dv[1][-1] = 0.0
     # ref_dg_slc[0][0] = 0.0
