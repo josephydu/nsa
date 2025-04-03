@@ -102,7 +102,9 @@ def attention_ref(
         qk = torch.einsum("bthd,bshd->bhts", q, k)
     else:
         qk = torch.einsum("bthd,bshd->bhts", q, k)
-    compress_score = torch.softmax(qk, dim=-1).to(torch.float32)
+    qc = q.clone()
+    kc = k.clone()
+    compress_score = torch.softmax(torch.einsum("bthd,bshd->bhts", qc, kc), dim=-1).to(torch.float32)
     scores = qk * scale
 
     if window_size[0] >= 0 or window_size[1] >= 0:
@@ -140,6 +142,7 @@ def attention_ref(
     output = torch.einsum("bhts,bshd->bthd", attention_drop, v * dropout_scaling)
     if query_padding_mask is not None:
         output.masked_fill_(rearrange(~query_padding_mask, "b s -> b s 1 1"), 0.0)
-    return output.to(dtype=dtype_og), compress_score
+    kc.retain_grad()
+    return output.to(dtype=dtype_og), compress_score, kc
 
 
