@@ -221,12 +221,12 @@ if __name__ == "__main__":
     # ref_dk[torch.isnan(ref_dk)] = 0.0
     # ref_dv[torch.isnan(ref_dv)] = 0.0
     # ref_dg_slc[torch.isnan(ref_dg_slc)] = 0.0
-    # ref_dv[0][-1] = 0.0
-    # ref_dv[1][-1] = 0.0
-    # ref_dg_slc[0][0] = 0.0
-    # ref_dg_slc[0][0] = 0.0
-    # ref_dg_slc[1][-1] = 0.0
-    # ref_dg_slc[1][-1] = 0.0
+    ref_dv[0][-1] = 0.0
+    ref_dv[1][-1] = 0.0
+    ref_dg_slc[0][0] = 0.0
+    ref_dg_slc[0][0] = 0.0
+    ref_dg_slc[1][-1] = 0.0
+    ref_dg_slc[1][-1] = 0.0
     
     tri = selection_attention(
         q=q,
