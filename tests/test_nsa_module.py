@@ -186,8 +186,8 @@ if __name__ == "__main__":
     block_indices = block_indices.sort(-1)[0]
     
     #NOTE: We change first element of block_indices from 0 to others manually, aiming to produce some nan in ref
-    # block_indices[0][0][0][0] = 4
-    # block_indices[1][63][0][0] = 7
+    block_indices[0][0][0][0] = 4
+    block_indices[1][63][0][0] = 7
 
     block_counts = torch.randint(1, S + 1, (B, T, H), device='cuda')
 
