@@ -645,21 +645,6 @@ class _attention(torch.autograd.Function):
             BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
         )
         grid = (Q_CTX // BLOCK_N1, BATCH, Q_HEAD)
-        print(delta.shape)
-        print(M.shape)
-        # _attn_bwd[grid](
-        #     q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
-        #     M, delta,  #
-        #     q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
-        #     k.stride(0), k.stride(2), k.stride(1), k.stride(3), #
-        #     Q_HEAD, Q_CTX, KV_CTX, #
-        #     BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
-        #     BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
-        #     BLK_SLICE_FACTOR=BLK_SLICE_FACTOR,  #
-        #     HEAD_DIM=ctx.HEAD_DIM,  #
-        #     num_warps=NUM_WARPS,  #
-        #     num_stages=NUM_STAGES  #
-        # )
         _attn_bwd_only_dkv[grid](
             q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
             M, delta,  #
@@ -682,6 +667,18 @@ class _attention(torch.autograd.Function):
             num_warps=NUM_WARPS,  #
             num_stages=NUM_STAGES  #
         )
+        if ds is not None:
+            # Recompute s
+            s = torch.einsum("bthd, bshd->bhts", q, k)
+            s = torch.nn.functional.softmax(s, dim=-1)
+            
+            # backward softmax
+            ds = ds * s * (1 - s)
+            
+            # backward einsum
+            dq += torch.einsum("bhts,bshd->bthd", ds, k)
+            dk += torch.einsum("bhts,bthd->bshd", ds, q)
+        
         return dq, dk, dv, None, None, None, None
 
 
