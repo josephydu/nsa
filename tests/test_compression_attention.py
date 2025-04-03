@@ -85,17 +85,16 @@ def test_causal():
 
     ref_o, ref_s = attention_ref(q_ref_t, ck_ref, cv_ref, compress_block_stride, compress_block_size, causal=True, scale=None)
 
-    ref_loss = (ref_o*ref_o+0.1*(ref_s*ref_s).sum()).sum()
+    ref_loss = (ref_o*ref_o).sum() + (ref_s*ref_s).sum()
     ref_loss.backward()
 
     o, s = flash_attn_func(q_t, ck, cv, compress_block_stride, compress_block_size, True, None)
     torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
-    loss = (o*o+0.1*(s*s).sum()).sum()
+    loss = (o*o).sum() + (s*s).sum()
     loss.backward()
     diff = (q.grad-q_ref.grad)/q_ref.grad
     torch.testing.assert_close(v.grad, v_ref.grad, rtol=3e-2, atol=3e-2)
     torch.testing.assert_close(k.grad, k_ref.grad, rtol=3e-2, atol=3e-2)
-    print(e)
     #torch.testing.assert_close(q.grad, q_ref.grad, rtol=3e-2, atol=3e-2)
     print('PASS CAUSAL')
 
