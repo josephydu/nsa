@@ -237,7 +237,7 @@ if __name__ == "__main__":
         window_size=window_size
     )
     
-
+    import pdb;pdb.set_trace()
 
     tri.backward(do)
     tri_dq, q.grad = q.grad.clone(), None
