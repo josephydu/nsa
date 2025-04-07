@@ -76,5 +76,4 @@ def test(fwd_func):
     #print(f"Estimated TFLOPs/s: {tflops:.2f}")
 
 
-test(nsa_fwd)
-test(flash_fwd)
+test(tilelang_nsa)
