@@ -37,7 +37,7 @@ def create_data(bs, num_q_head, num_kv_head, head_dim):
 
 
 def test_no_causal():
-    bs, num_q_head, num_kv_head, head_dim = 1, 32, 2, 128
+    bs, num_q_head, num_kv_head, head_dim = 1, 16, 2, 128
     q, k, v, q_ref, k_ref, v_ref, t = create_data(bs, num_q_head, num_kv_head, head_dim)
     q_t = q.reshape(bs, seq_len, num_q_head, head_dim)
     q_ref_t = q_ref.reshape(bs, seq_len, num_q_head, head_dim)
@@ -59,6 +59,7 @@ def test_no_causal():
     print("========================")
 
     torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
+    torch.testing.assert_close(s, ref_s, rtol=1e-2, atol=1e-2)
     # loss = (o*o).sum() + (s*s).sum()
     # loss.backward()
 
