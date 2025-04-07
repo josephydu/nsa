@@ -6,9 +6,14 @@ import triton
 import triton.language as tl
 from einops import rearrange, repeat
 from torch.nn.attention import SDPBackend, sdpa_kernel
+
+
+# Copy from https://github.com/Dao-AILab/flash-attention/blob/main/tests/test_flash_attn.py
 def construct_local_mask(
     seqlen_q,
     seqlen_k,
+    block_stride,
+    block_size,
     window_size=(-1, -1),  # -1 means infinite window size
     query_padding_mask=None,
     key_padding_mask=None,
@@ -31,20 +36,25 @@ def construct_local_mask(
         if query_padding_mask is None
         else rearrange(query_padding_mask.sum(-1), "b -> b 1 1 1")
     )
+
     if window_size[0] < 0:
-        return col_idx > row_idx + sk - sq + window_size[1]
+        return col_idx * block_stride + block_size > row_idx
     else:
         sk = torch.full_like(col_idx, seqlen_k) if key_padding_mask is None else sk
-        return torch.logical_or(
+        mask = torch.logical_or(
             col_idx > torch.minimum(row_idx + sk - sq + window_size[1], sk),
             col_idx < row_idx + sk - sq - window_size[0],
         )
+        return mask
+
 
 # Copy from https://github.com/Dao-AILab/flash-attention/blob/main/tests/test_flash_attn.py
 def attention_ref(
     q,
     k,
     v,
+    block_stride, 
+    block_size,
     query_padding_mask=None,
     key_padding_mask=None,
     attn_bias=None,
@@ -53,9 +63,10 @@ def attention_ref(
     causal=False,
     window_size=(-1, -1),  # -1 means infinite window size
     softcap=0.0,
-    upcast=True,
+    upcast=False,
     reorder_ops=False,
     key_leftpad=None,
+    scale=None
 ):
     """
     Arguments:
@@ -84,40 +95,41 @@ def attention_ref(
     if upcast:
         q, k, v = q.float(), k.float(), v.float()
     seqlen_q, seqlen_k = q.shape[1], k.shape[1]
-    k = repeat(k, "b s h d -> b s (h g) d", g=q.shape[2] // k.shape[2])
-    v = repeat(v, "b s h d -> b s (h g) d", g=q.shape[2] // v.shape[2])
     d = q.shape[-1]
+    if scale is None:
+        scale = 1 / math.sqrt(d)
     if not reorder_ops:
-        scores = torch.einsum("bthd,bshd->bhts", q / math.sqrt(d), k)
+        qk = torch.einsum("bthd,bshd->bhts", q, k)
     else:
-        scores = torch.einsum("bthd,bshd->bhts", q, k / math.sqrt(d))
-    if softcap > 0:
-        scores = scores / softcap
-        scores = scores.tanh()
-        scores = scores * softcap
-    if key_padding_mask is not None:
-        scores.masked_fill_(rearrange(~key_padding_mask, "b s -> b 1 1 s"), float("-inf"))
+        qk = torch.einsum("bthd,bshd->bhts", q, k)
+    compress_score = torch.softmax(qk, dim=-1)
+    scores = qk * scale
+
     if window_size[0] >= 0 or window_size[1] >= 0:
         local_mask = construct_local_mask(
             seqlen_q,
             seqlen_k,
+            block_stride,
+            block_size,
             window_size,
             query_padding_mask,
             key_padding_mask,
             q.device,
             key_leftpad=key_leftpad,
         )
-        scores.masked_fill_(local_mask, float("-inf"))
+        if causal:
+            scores.masked_fill_(local_mask, float("-inf"))
     if attn_bias is not None:
         scores = scores + attn_bias
-    attention = torch.softmax(scores, dim=-1).to(v.dtype)
+    # scores.retain_grad()
+    attention_without_mask = torch.softmax(scores, dim=-1).to(v.dtype)
     # Some rows might be completely masked out so we fill them with zero instead of NaN
-    if window_size[0] >= 0 or window_size[1] >= 0:
-        attention = attention.masked_fill(torch.all(local_mask, dim=-1, keepdim=True), 0.0)
-    # We want to mask here so that the attention matrix doesn't have any NaNs
-    # Otherwise we'll get NaN in dV
-    if query_padding_mask is not None:
-        attention = attention.masked_fill(rearrange(~query_padding_mask, "b s -> b 1 s 1"), 0.0)
+    if (window_size[0] >= 0 or window_size[1] >= 0) and causal:
+        attention = attention_without_mask.masked_fill(torch.all(local_mask, dim=-1, keepdim=True), 0.0)
+    else:
+        attention = attention_without_mask
+
+    # attention_without_mask.retain_grad()
     dropout_scaling = 1.0 / (1 - dropout_p)
     # attention_drop = attention.masked_fill(~dropout_mask, 0.0) * dropout_scaling
     # output = torch.einsum('bhts,bshd->bthd', attention_drop , v)
@@ -128,4 +140,5 @@ def attention_ref(
     output = torch.einsum("bhts,bshd->bthd", attention_drop, v * dropout_scaling)
     if query_padding_mask is not None:
         output.masked_fill_(rearrange(~query_padding_mask, "b s -> b s 1 1"), 0.0)
-    return output.to(dtype=dtype_og), attention.to(dtype=dtype_og)
+    return output.to(dtype=dtype_og), compress_score
+
