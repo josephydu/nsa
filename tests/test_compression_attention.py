@@ -52,6 +52,12 @@ def test_no_causal():
     ref_loss.backward()
 
     o, s = flash_attn_func(q_t, k_t, v_t, compress_block_stride, compress_block_size, False, None)
+
+    print("========================")
+    print("o.shape = ", o.shape)
+    print("ref_o.shape = ", ref_o.shape )
+    print("========================")
+
     torch.testing.assert_close(o, ref_o, rtol=1e-2, atol=1e-2)
     # loss = (o*o).sum() + (s*s).sum()
     # loss.backward()
