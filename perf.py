@@ -2,7 +2,7 @@ import torch
 
 import triton
 import time
-from tilelang import parallel_nsa as tilelang_nsa
+from tilelang_version import parallel_nsa as tilelang_nsa
 from triton_version import parallel_nsa as triton_nsa
 torch.manual_seed(10)
 
@@ -75,4 +75,4 @@ def test(fwd_func):
 
 
 test(tilelang_nsa_fwd)
-test(t)
+test(triton_nsa_fwd)
