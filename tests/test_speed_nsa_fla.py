@@ -23,7 +23,6 @@ cu_seq_len = torch.cumsum(t, dim=0).to(torch.int32).to(device)
 
 attn = NSAAttention(head_dim, 0, True, None, 0, device=device, dtype=dtype)
 
-# Warmup for more accurate timing
 for _ in range(3):
     o = attn(q, k, v, cu_seq_len, 0, causal=True)
     loss = (o*o).sum()
