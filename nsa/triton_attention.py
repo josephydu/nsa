@@ -92,11 +92,10 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
     off_z = tl.program_id(1).to(tl.int64)
     off_h = tl.program_id(2).to(tl.int64) # 0~64 => 0~16
     
-    off_h_q = off_h
-    off_h_kv = off_h // GROUP_SIZE
-    off_h_kv = off_h
-    qo_offset = off_z * stride_qz + off_h_q * stride_qh # group start = 4
-    kv_offset = off_z * stride_kz + off_h_kv * stride_kh # off_h = 1
+    # off_h_q = off_h
+    # off_h_kv = off_h % 4
+    qo_offset = off_z * stride_qz + off_h * stride_qh # group start = 4
+    kv_offset = off_z * stride_kz + off_h * stride_kh # off_h = 1
 
     # block pointers
     Q_block_ptr = tl.make_block_ptr(
@@ -413,7 +412,6 @@ class _attention(torch.autograd.Function):
         num_groups = q.shape[2] // k.shape[2] # 64 / 4 = 16 groups
         group_size = q.shape[2] // num_groups # 64 / 16 = 4 heads per group
 
-        group_size = 1
         # shape constraints
         HEAD_DIM_Q, HEAD_DIM_K = q.shape[-1], k.shape[-1]
         # when v is in float8_e5m2 it is transposed.
