@@ -91,10 +91,11 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
     start_m = tl.program_id(0)
     off_z = tl.program_id(1).to(tl.int64)
     off_h = tl.program_id(2).to(tl.int64) # 0~64 => 0~16
-    group_start = off_h * GROUP_SIZE # 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 
     
-    qo_offset = off_z * stride_qz + group_start * stride_qh # group start = 4
-    kv_offset = off_z * stride_kz + off_h * stride_kh # off_h = 1
+    off_h_q = off_h
+    off_h_kv = off_h % GROUP_SIZE
+    qo_offset = off_z * stride_qz + off_h_q * stride_qh # group start = 4
+    kv_offset = off_z * stride_kz + off_h_kv * stride_kh # off_h = 1
 
     # block pointers
     Q_block_ptr = tl.make_block_ptr(
