@@ -450,11 +450,11 @@ class _attention(torch.autograd.Function):
         ctx.causal = causal
         ctx.block_stride = block_stride
         ctx.block_size = block_size
-        s = torch.einsum("bthd, bshd->bhts", q, k)
+        # s = torch.einsum("bthd, bshd->bhts", q, k)
         #s = torch.nn.functional.softmax(s, dim=-1)
-        softmax_grid = (256, )
-        n_row, n_col, block_size = s.numel()//s.shape[-1], s.shape[-1], triton.next_power_of_2(s.shape[-1])
-        softmax_kernel[softmax_grid](s, s, s.stride(2), s.stride(2), n_row, n_col, block_size, 4)
+        # softmax_grid = (256, )
+        # n_row, n_col, block_size = s.numel()//s.shape[-1], s.shape[-1], triton.next_power_of_2(s.shape[-1])
+        # softmax_kernel[softmax_grid](s, s, s.stride(2), s.stride(2), n_row, n_col, block_size, 4)
         return o, s
 
     @staticmethod
