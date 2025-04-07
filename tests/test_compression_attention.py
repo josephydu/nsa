@@ -101,6 +101,6 @@ def test_causal():
     #torch.testing.assert_close(q.grad, q_ref.grad, rtol=3e-2, atol=3e-2)
     print('PASS CAUSAL')
 
-test_causal()
+# test_causal()
 
 
