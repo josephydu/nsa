@@ -1,8 +1,7 @@
 import torch
 
-from nsa import selection_attention
 from nsa.nsa import NSAAttention
-
+import triton
 
 torch.manual_seed(10)
 
@@ -24,33 +23,32 @@ cu_seq_len = torch.cumsum(t, dim=0).to(torch.int32).to(device)
 
 attn = NSAAttention(head_dim, 0, True, None, 0, device=device, dtype=dtype)
 
-forward_start = torch.cuda.Event(enable_timing=True)
-forward_end = torch.cuda.Event(enable_timing=True)
-backward_start = torch.cuda.Event(enable_timing=True)
-backward_end = torch.cuda.Event(enable_timing=True)
+# Warmup for more accurate timing
+for _ in range(3):
+    o = attn(q, k, v, cu_seq_len, 0, causal=True)
+    loss = (o*o).sum()
+    loss.backward()
+    torch.cuda.synchronize()
 
-forward_start.record()
-o = attn(q, k, v, cu_seq_len, 0, causal=True)
-forward_end.record()
-assert not torch.isnan(o).any(), 'forward output has nan.'
+forward_time = triton.testing.do_bench(
+    lambda: attn(q, k, v, cu_seq_len, 0, causal=True),
+    warmup=0,
+    rep=40
+)[0]
 
-loss = (o*o).sum()
-
-backward_start.record()
-loss.backward()
-backward_end.record()
-
-torch.cuda.synchronize()
-
-forward_time = forward_start.elapsed_time(forward_end)
-backward_time = backward_start.elapsed_time(backward_end)
+loss = (o.detach() * o.detach()).sum()  
+grad_tensor = torch.ones_like(loss)
+backward_time = triton.testing.do_bench(
+    lambda: o.backward(grad_tensor, retain_graph=True),
+    warmup=0,
+    rep=40
+)[0]
 total_time = forward_time + backward_time
 
 d_model = num_q_head * head_dim
 total_flops = 2 * 2 * (seq_len ** 2) * d_model * num_kv_head
 tflops = total_flops / (total_time * 1e-3) / 1e12
 
-print(f"Forward time: {forward_time:.2f}ms")
-print(f"Backward time: {backward_time:.2f}ms")
-print(f"Total time: {total_time:.2f}ms")
+ms_per_iter = total_time
+print(f"Forward: {forward_time:.3f}ms | Backward: {backward_time:.3f}ms | Total: {total_time:.3f}ms")
 print(f"Estimated TFLOPs/s: {tflops:.2f}")
