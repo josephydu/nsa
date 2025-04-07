@@ -33,8 +33,8 @@ block_indices = block_indices.sort(-1)[0]
 block_counts = torch.randint(1, S + 1, (B, T, H), device="cuda")
 
 
-tilelang_nsa = lambda : tilelang_nsa(q, k, v, g_slc, g_swa, block_indices, block_size, block_counts)
-triton_nsa = lambda : triton_nsa(q, k, v, g_slc, g_swa, block_indices, block_size, block_counts)
+tilelang_nsa_fwd = lambda : tilelang_nsa(q, k, v, g_slc, g_swa, block_indices, block_size, block_counts)
+triton_nsa_fwd = lambda : triton_nsa(q, k, v, g_slc, g_swa, block_indices, block_size, block_counts)
 
 def test(fwd_func):
     for i in range(5):
@@ -74,5 +74,5 @@ def test(fwd_func):
     #print(f"Estimated TFLOPs/s: {tflops:.2f}")
 
 
-test(tilelang_nsa)
-test(triton_nsa)
+test(tilelang_nsa_fwd)
+test(t)
