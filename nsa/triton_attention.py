@@ -93,7 +93,7 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
     off_h = tl.program_id(2).to(tl.int64) # 0~64 => 0~16
     
     off_h_q = off_h
-    off_h_kv = off_h % GROUP_SIZE
+    off_h_kv = off_h % 16
     qo_offset = off_z * stride_qz + off_h_q * stride_qh # group start = 4
     kv_offset = off_z * stride_kz + off_h_kv * stride_kh # off_h = 1
 
