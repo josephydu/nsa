@@ -81,7 +81,7 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
               Z, H, N_CTX, Q_CTX, #
               block_stride: tl.constexpr,
               block_size: tl.constexpr,
-              group_size: tl.constexpr,
+              num_groups: tl.constexpr,
               HEAD_DIM: tl.constexpr,  #
               BLOCK_M: tl.constexpr,  #
               BLOCK_N: tl.constexpr,  #
@@ -93,7 +93,7 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
     off_h = tl.program_id(2).to(tl.int64)
     
     off_h_q = off_h
-    off_h_kv = off_h // group_size
+    off_h_kv = off_h // num_groups
     qo_offset = off_z * stride_qz + off_h_q * stride_qh
     kv_offset = off_z * stride_kz + off_h_kv * stride_kh
 
@@ -403,7 +403,8 @@ class _attention(torch.autograd.Function):
     def forward(ctx, q, k, v, block_stride, block_size, causal, sm_scale):
         # B, T, H, D
 
-        group_size = 1
+        num_groups = 1
+        num_groups = q.shape[2] // k.shape[2]
         
         # shape constraints
         HEAD_DIM_Q, HEAD_DIM_K = q.shape[-1], k.shape[-1]
@@ -430,7 +431,7 @@ class _attention(torch.autograd.Function):
             N_CTX=k.shape[1], Q_CTX=q.shape[1],  #
             block_stride=block_stride,
             block_size=block_size,
-            group_size = group_size,
+            num_groups = num_groups,
             HEAD_DIM=HEAD_DIM_K,  #
             STAGE=stage,  #
             BLOCK_M=64,

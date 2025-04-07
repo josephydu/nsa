@@ -37,7 +37,7 @@ def create_data(bs, num_q_head, num_kv_head, head_dim):
 
 
 def test_no_causal():
-    bs, num_q_head, num_kv_head, head_dim = 2, 4, 4, 128
+    bs, num_q_head, num_kv_head, head_dim = 2, 64, 4, 128
     q, k, v, q_ref, k_ref, v_ref, t = create_data(bs, num_q_head, num_kv_head, head_dim)
     q_t = q.reshape(bs, seq_len, num_q_head, head_dim)
     q_ref_t = q_ref.reshape(bs, seq_len, num_q_head, head_dim)
