@@ -79,7 +79,6 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
               stride_vz, stride_vh, stride_vk, stride_vn,  #
               stride_oz, stride_oh, stride_om, stride_on,  #
               Z, H, N_CTX, Q_CTX, #
-              GROUP_SIZE: tl.constexpr,
               block_stride: tl.constexpr,
               block_size: tl.constexpr,
               HEAD_DIM: tl.constexpr,  #
@@ -90,12 +89,9 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
     tl.static_assert(BLOCK_N <= HEAD_DIM)
     start_m = tl.program_id(0)
     off_z = tl.program_id(1).to(tl.int64)
-    off_h = tl.program_id(2).to(tl.int64) # 0~64 => 0~16
-    
-    # off_h_q = off_h
-    # off_h_kv = off_h % 4
-    qo_offset = off_z * stride_qz + off_h * stride_qh # group start = 4
-    kv_offset = off_z * stride_kz + off_h * stride_kh # off_h = 1
+    off_h = tl.program_id(2).to(tl.int64)
+    qo_offset = off_z * stride_qz + off_h * stride_qh
+    kv_offset = off_z * stride_kz + off_h * stride_kh
 
     # block pointers
     Q_block_ptr = tl.make_block_ptr(
@@ -403,15 +399,6 @@ class _attention(torch.autograd.Function):
     def forward(ctx, q, k, v, block_stride, block_size, causal, sm_scale):
         # B, T, H, D
 
-        # NOTE: For GQA
-        '''
-        q: torch.Size([1, 32768, 64, 128])
-        k: torch.Size([1, 2047, 4, 128])
-        v: torch.Size([1, 2047, 4, 128])
-        '''
-        num_groups = q.shape[2] // k.shape[2] # 64 / 4 = 16 groups
-        group_size = q.shape[2] // num_groups # 64 / 16 = 4 heads per group
-
         # shape constraints
         HEAD_DIM_Q, HEAD_DIM_K = q.shape[-1], k.shape[-1]
         # when v is in float8_e5m2 it is transposed.
@@ -425,9 +412,9 @@ class _attention(torch.autograd.Function):
             sm_scale = 1 / math.sqrt(HEAD_DIM_Q)
 
         M = torch.empty((q.shape[0], q.shape[1], q.shape[2]), device=q.device, dtype=torch.float32)
-        grid = lambda args: (triton.cdiv(q.shape[1], args["BLOCK_M"]), q.shape[0], num_groups)
+        grid = lambda args: (triton.cdiv(q.shape[1], args["BLOCK_M"]), q.shape[0], q.shape[2])
         ctx.grid = grid
-        _attn_fwd[grid](
+        kernel = _attn_fwd[grid](
             q, k, v, sm_scale, M, o,  #
             q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
             k.stride(0), k.stride(2), k.stride(1), k.stride(3),  #
@@ -435,7 +422,6 @@ class _attention(torch.autograd.Function):
             o.stride(0), o.stride(2), o.stride(1), o.stride(3),  #
             q.shape[0], q.shape[2],  #
             N_CTX=k.shape[1], Q_CTX=q.shape[1],  #
-            GROUP_SIZE=group_size,
             block_stride=block_stride,
             block_size=block_size,
             HEAD_DIM=HEAD_DIM_K,  #
@@ -451,11 +437,11 @@ class _attention(torch.autograd.Function):
         ctx.block_stride = block_stride
         ctx.block_size = block_size
         s = torch.einsum("bthd, bshd->bhts", q, k)
-        s = torch.nn.functional.softmax(s, dim=-1)
+        #s = torch.nn.functional.softmax(s, dim=-1)
         softmax_grid = (256, )
         n_row, n_col, block_size = s.numel()//s.shape[-1], s.shape[-1], triton.next_power_of_2(s.shape[-1])
         softmax_kernel[softmax_grid](s, s, s.stride(2), s.stride(2), n_row, n_col, block_size, 4)
-        return o, None
+        return o, s
 
     @staticmethod
     def backward(ctx, do, ds):
