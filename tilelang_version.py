@@ -11,7 +11,7 @@ import triton.language as tl
 from fla.ops.common.utils import prepare_token_indices
 from fla.utils import autocast_custom_bwd, autocast_custom_fwd, contiguous
 from einops import rearrange
-import tilelang_version
+import tilelang
 
 
 def tilelang_kernel_fwd(
