@@ -97,7 +97,15 @@ class NSAAttention(nn.Module):
         q = q.reshape(bs, -1, num_q_head, head_qk_dim)  
 
         # compress attention
+        print("input shape:")
+        print(q.shape)
+        print(k.shape)
+        print(v.shape)
         ck, cv, compress_cu_kv_len = self.compressor(k, v, cu_seqlens_k, num_q_head//k.shape[1]) # ck/cv: B, T, H*q, D
+        print("after compressor shape:")
+        print(q.shape)
+        print(ck.shape)
+        print(cv.shape)
 
         cmp_o, attn_score = attn_func(
             q,
