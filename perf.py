@@ -2,7 +2,8 @@ import torch
 
 import triton
 import time
-from .tilelang import parallel_nsa as tilelang_nsa
+from tilelang import parallel_nsa as tilelang_nsa
+from triton_version import parallel_nsa as triton_nsa
 torch.manual_seed(10)
 
 dtype = torch.bfloat16
@@ -33,7 +34,7 @@ block_counts = torch.randint(1, S + 1, (B, T, H), device="cuda")
 
 
 tilelang_nsa = lambda : tilelang_nsa(q, k, v, g_slc, g_swa, block_indices, block_size, block_counts)
-
+triton_nsa = lambda : triton_nsa(q, k, v, g_slc, g_swa, block_indices, block_size, block_counts)
 
 def test(fwd_func):
     for i in range(5):
@@ -74,3 +75,4 @@ def test(fwd_func):
 
 
 test(tilelang_nsa)
+test(triton_nsa)
