@@ -3,8 +3,6 @@ import torch
 from nsa.nsa import NSAAttention
 import triton
 import time
-from flash_attn.flash_attn_interface import flash_attn_varlen_func
-from torch.profiler import profile, record_function, ProfilerActivity
 from .tilelang import parallel_nsa as tilelang_nsa
 torch.manual_seed(10)
 
