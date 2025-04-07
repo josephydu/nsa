@@ -94,6 +94,7 @@ def _attn_fwd(Q, K, V, sm_scale, M, Out,  #
     
     off_h_q = off_h
     off_h_kv = off_h // GROUP_SIZE
+    off_h_kv = off_h
     qo_offset = off_z * stride_qz + off_h_q * stride_qh # group start = 4
     kv_offset = off_z * stride_kz + off_h_kv * stride_kh # off_h = 1
 
