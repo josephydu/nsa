@@ -5,29 +5,37 @@ import triton
 import time
 from flash_attn.flash_attn_interface import flash_attn_varlen_func
 from torch.profiler import profile, record_function, ProfilerActivity
+from .tilelang import parallel_nsa as tilelang_nsa
 torch.manual_seed(10)
-
-bs, num_q_head, num_kv_head, head_dim = 1, 64, 4, 128
-compress_block_size, compress_block_stride = 64, 16
-selection_block, selected_block_count = 64, 32
-seq_len = 1024*32
 
 dtype = torch.bfloat16
 device = "cuda"
 torch.set_default_device(device)
 torch.set_default_dtype(dtype)
-
-q = torch.randn(bs*seq_len, num_q_head, head_dim, requires_grad=True)
-k = torch.randn(bs*seq_len, num_kv_head, head_dim, requires_grad=True)
-v = torch.randn(bs*seq_len, num_kv_head, head_dim, requires_grad=True)
-t = torch.Tensor([0] + [seq_len] * bs)
-cu_seq_len = torch.cumsum(t, dim=0).to(torch.int32).to(device)
+B, T, H, HQ, D, S, block_size, dtype = 1, 32, 1, 16, 32, 1, 32, torch.float16
+torch.random.manual_seed(0)
 
 
-attn = NSAAttention(head_dim, 0, True, None, 0, device=device, dtype=dtype)
+q = torch.randn((B, T, HQ, D), dtype=dtype, device="cuda").requires_grad_(True)
+k = torch.randn((B, T, H, D), dtype=dtype, device="cuda").requires_grad_(True)
+v = torch.randn((B, T, H, D), dtype=dtype, device="cuda").requires_grad_(True)
+g_slc = torch.ones((B, T, HQ), dtype=dtype, device="cuda").requires_grad_(True)
+g_swa = torch.ones((B, T, HQ), dtype=dtype, device="cuda").requires_grad_(True)
+do = torch.randn((B, T, HQ, D), dtype=dtype, device="cuda")
 
-nsa_fwd = lambda : attn(q, k, v, cu_seq_len, 0, causal=True)
-flash_fwd = lambda : flash_attn_varlen_func(q, k, v, cu_seq_len, cu_seq_len, seq_len, seq_len)
+
+block_indices = torch.full((B, T, H, S), T, dtype=torch.long, device="cuda")
+for b in range(B):
+    for t in range(T):
+        for h in range(H):
+            i_i = torch.randperm(max(1, (t // block_size)))[:S]
+            block_indices[b, t, h, :len(i_i)] = i_i
+block_indices = block_indices.sort(-1)[0]
+
+block_counts = torch.randint(1, S + 1, (B, T, H), device="cuda")
+
+
+tilelang_nsa = lambda : tilelang_nsa(q, k, v, g_slc, g_swa, block_indices, block_size, block_counts)
 
 
 def test(fwd_func):
