@@ -433,7 +433,7 @@ class _attention(torch.autograd.Function):
             k.stride(0), k.stride(2), k.stride(1), k.stride(3),  #
             v.stride(0), v.stride(2), v.stride(1), v.stride(3),  #
             o.stride(0), o.stride(2), o.stride(1), o.stride(3),  #
-            q.shape[0], num_groups,  #
+            q.shape[0], 64,  #
             N_CTX=k.shape[1], Q_CTX=q.shape[1],  #
             GROUP_SIZE=group_size,
             block_stride=block_stride,
