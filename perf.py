@@ -1,6 +1,5 @@
 import torch
 
-from nsa.nsa import NSAAttention
 import triton
 import time
 from .tilelang import parallel_nsa as tilelang_nsa
