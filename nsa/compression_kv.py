@@ -308,9 +308,9 @@ class KVCompressor(nn.Module):
         print("before group")
         print(ck.shape)
         print(cv.shape)
-        if group is not None:
-            ck = repeat(ck, "b s h d -> b s (h g) d", g=group)
-            cv = repeat(cv, "b s h d -> b s (h g) d", g=group)
+        # if group is not None:
+            # ck = repeat(ck, "b s h d -> b s (h g) d", g=group)
+            # cv = repeat(cv, "b s h d -> b s (h g) d", g=group)
         print("after group")
         print(ck.shape)
         print(cv.shape)
