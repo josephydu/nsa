@@ -10,6 +10,7 @@ import triton.language as tl
 
 from fla.ops.common.utils import prepare_token_indices
 from fla.utils import autocast_custom_bwd, autocast_custom_fwd, contiguous
+from reference import naive_nsa
 from einops import rearrange
 import tilelang
 
@@ -26,7 +27,7 @@ def tilelang_kernel_fwd(
     selected_blocks=16,
 ):
 
-    from tilelang_version import language as T
+    from tilelang import language as T
 
     if scale is None:
         scale = (1.0 / dim)**0.5 * 1.44269504  # log2(e)
@@ -43,10 +44,10 @@ def tilelang_kernel_fwd(
     dtype = "float16"
     accum_dtype = "float"
     block_S = block_size
-    block_T = min(128, tilelang_version.math.next_power_of_2(dim))
+    block_T = min(128, tilelang.math.next_power_of_2(dim))
 
-    NK = tilelang_version.cdiv(dim, block_T)
-    NV = tilelang_version.cdiv(dim, block_T)
+    NK = tilelang.cdiv(dim, block_T)
+    NV = tilelang.cdiv(dim, block_T)
     assert NK == 1, "The key dimension can not be larger than 256"
 
     S = selected_blocks
@@ -56,7 +57,7 @@ def tilelang_kernel_fwd(
     num_stages = 0
     threads = 32
 
-    @tilelang_version.jit
+    @tilelang.jit
     @T.prim_func
     def native_sparse_attention(
             Q: T.Tensor(q_shape, dtype),
@@ -167,17 +168,17 @@ def tilelang_kernel_bwd_dkv(
 
     scale = sm_scale * 1.44269504
 
-    from tilelang_version import language as T
+    from tilelang import language as T
 
     B = batch
     BS = block_size
     G = groups
     V = dim
     K = dim
-    BK = tilelang_version.next_power_of_2(K)
-    BV = min(128, tilelang_version.next_power_of_2(dim))
-    NS = tilelang_version.cdiv(seq_len, BS)
-    NV = tilelang_version.cdiv(V, BV)
+    BK = tilelang.next_power_of_2(K)
+    BV = min(128, tilelang.next_power_of_2(dim))
+    NS = tilelang.cdiv(seq_len, BS)
+    NV = tilelang.cdiv(V, BV)
 
     heads_kv = heads // groups
     q_shape = [batch, seq_len, heads, dim]
@@ -194,7 +195,7 @@ def tilelang_kernel_bwd_dkv(
     num_threads = 32
     print("NV", NV, "NS", NS, "B", B, "H", H)
 
-    @tilelang_version.jit
+    @tilelang.jit
     @T.prim_func
     def flash_bwd_dkv(
             Q: T.Tensor(q_shape, dtype),
@@ -237,9 +238,9 @@ def tilelang_kernel_bwd_dkv(
             T.clear(dv)
 
             T.annotate_layout({
-                K_shared: tilelang_version.layout.make_swizzled_layout(K_shared),
-                dv_shared: tilelang_version.layout.make_swizzled_layout(dv_shared),
-                dk_shared: tilelang_version.layout.make_swizzled_layout(dk_shared),
+                K_shared: tilelang.layout.make_swizzled_layout(K_shared),
+                dv_shared: tilelang.layout.make_swizzled_layout(dv_shared),
+                dk_shared: tilelang.layout.make_swizzled_layout(dk_shared),
             })
 
             loop_st = i_s * BS
@@ -302,7 +303,7 @@ def tilelang_kernel_bwd_dkv(
 
 
 def make_dq_layout(dQ):
-    from tilelang_version import language as T
+    from tilelang import language as T
 
     # atomicAdd can not be vectorized, so we need to reorder dq to match the 8x8 gemm fragment
     return T.Layout(
@@ -331,17 +332,17 @@ def tilelang_kernel_bwd_dqkv(
 
     scale = sm_scale * 1.44269504
 
-    from tilelang_version import language as T
+    from tilelang import language as T
 
     B = batch
     BS = block_size
     G = groups
     V = dim
     K = dim
-    BK = tilelang_version.next_power_of_2(K)
-    BV = min(128, tilelang_version.next_power_of_2(dim))
-    NS = tilelang_version.cdiv(seq_len, BS)
-    NV = tilelang_version.cdiv(V, BV)
+    BK = tilelang.next_power_of_2(K)
+    BV = min(128, tilelang.next_power_of_2(dim))
+    NS = tilelang.cdiv(seq_len, BS)
+    NV = tilelang.cdiv(V, BV)
 
     heads_kv = heads // groups
     q_shape = [batch, seq_len, heads, dim]
@@ -358,7 +359,7 @@ def tilelang_kernel_bwd_dqkv(
     block_mask_shape = [batch, seq_len, heads_kv, NS]
     num_threads = 32
 
-    @tilelang_version.jit
+    @tilelang.jit
     @T.prim_func
     def flash_bwd_dqkv(
             Q: T.Tensor(q_shape, dtype),
@@ -403,9 +404,9 @@ def tilelang_kernel_bwd_dqkv(
             T.clear(dv)
 
             T.annotate_layout({
-                K_shared: tilelang_version.layout.make_swizzled_layout(K_shared),
-                dv_shared: tilelang_version.layout.make_swizzled_layout(dv_shared),
-                dk_shared: tilelang_version.layout.make_swizzled_layout(dk_shared),
+                K_shared: tilelang.layout.make_swizzled_layout(K_shared),
+                dv_shared: tilelang.layout.make_swizzled_layout(dv_shared),
+                dk_shared: tilelang.layout.make_swizzled_layout(dk_shared),
             })
 
             loop_st = i_s * BS
@@ -483,11 +484,11 @@ def tilelang_kernel_preprocess(
     accum_dtype="float",
     blk=32,
 ):
-    from tilelang_version import language as T
+    from tilelang import language as T
 
     shape = [batch, seq_len, heads, dim]
 
-    @tilelang_version.jit(out_idx=[2], execution_backend="cython")
+    @tilelang.jit(out_idx=[2], execution_backend="cython")
     @T.prim_func
     def flash_bwd_prep(
             O: T.Tensor(shape, dtype),  # type: ignore
@@ -519,18 +520,18 @@ def tilelang_kernel_block_mask(
     block_size,
     dtype="int32",
 ):
-    from tilelang_version import language as T
+    from tilelang import language as T
 
     block_indices_shape = [batch, seq_len, heads, selected_blocks]
     block_counts_shape = [batch, seq_len, heads]
     S = selected_blocks
     BS = block_size
-    NS = tilelang_version.cdiv(seq_len, BS)
+    NS = tilelang.cdiv(seq_len, BS)
 
     block_mask_shape = [batch, seq_len, heads, NS]
     USE_BLOCK_COUNTS = block_counts is not None
 
-    @tilelang_version.jit(out_idx=[2], execution_backend="cython")
+    @tilelang.jit(out_idx=[2], execution_backend="cython")
     @T.prim_func
     def flash_bwd_block_mask(
             BlockIndices: T.Tensor(block_indices_shape, dtype),  # type: ignore
