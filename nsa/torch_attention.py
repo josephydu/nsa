@@ -98,7 +98,6 @@ def attention_ref(
     d = q.shape[-1]
     if scale is None:
         scale = 1 / math.sqrt(d)
-    # Handle GQA by repeating k/v heads when nheads > nheads_k
     assert q.size(2) % k.size(2) == 0, "nheads must be divisible by nheads_k for GQA"
     if k.size(2) != q.size(2):
         groups = q.size(2) // k.size(2)
