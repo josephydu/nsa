@@ -34,8 +34,8 @@ assert not torch.isnan(fused_o).any(), 'forward output has nan.'
 
 torch.testing.assert_close(o, fused_o, rtol=1e-2, atol=1e-2)
 print('forward test passed.')
-# loss = (o*o).sum()
-# loss.backward()
+loss = (fused_o*fused_o).sum()
+loss.backward()
 
 
 # assert not torch.isnan(q.grad).any(), 'q.grad output has nan.'
