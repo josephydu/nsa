@@ -52,7 +52,8 @@ assert not torch.isnan(o_dq).any(), 'o_dq output has nan.'
 assert not torch.isnan(o_dk).any(), 'o_dk output has nan.'
 assert not torch.isnan(o_dv).any(), 'o_dv output has nan.'
 
-
+import pdb;
+pdb.set_trace()
 assert not torch.isnan(fused_dq).any(), 'fused_dq output has nan.'
 assert not torch.isnan(fused_dk).any(), 'fused_dk output has nan.'
 assert not torch.isnan(fused_dv).any(), 'fused_dv output has nan.'
