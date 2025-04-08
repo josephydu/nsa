@@ -407,7 +407,7 @@ def _attn_bwd_only_dq(Q, K, V, sm_scale,  #
 
 class _attention(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, q, k, v, block_stride, block_size, causal, sm_scale):
+    def forward(ctx, q, k, v, block_stride, block_size, causal, sm_scale, pool_kernel_size, pool_stride, pool_padding):
         # B, T, H, D
 
         # shape constraints
@@ -425,7 +425,7 @@ class _attention(torch.autograd.Function):
         M = torch.empty((q.shape[0], q.shape[1], q.shape[2]), device=q.device, dtype=torch.float32)
         grid = lambda args: (triton.cdiv(q.shape[1], args["BLOCK_M"]), q.shape[0], q.shape[2])
         ctx.grid = grid
-        kernel = _attn_fwd[grid](
+        _attn_fwd[grid](
             q, k, v, sm_scale, M, o,  #
             q.stride(0), q.stride(2), q.stride(1), q.stride(3),  #
             k.stride(0), k.stride(2), k.stride(1), k.stride(3),  #
@@ -452,6 +452,14 @@ class _attention(torch.autograd.Function):
         softmax_grid = (256, )
         n_row, n_col, block_size = s.numel()//s.shape[-1], s.shape[-1], triton.next_power_of_2(s.shape[-1])
         softmax_kernel[softmax_grid](s, s, s.stride(2), s.stride(2), n_row, n_col, block_size, 4)
+        
+        bs = q.shape[0]
+        num_kv_head = q.shape[2]
+        s = s.reshape(bs, num_kv_head, -1, *s.shape[-2:]).sum(2)
+        s = score.reshape(-1, *s.shape[2:])
+        s = torch.nn.functional.avg_pool1d(pool_kernel_size, pool_stride, pool_padding, True)
+        score = score.reshape(bs, num_kv_head, *score.shape[-2:])  # -> B, H, T1, T2
+        
         return o, s
 
     @staticmethod
@@ -538,7 +546,7 @@ class _attention(torch.autograd.Function):
             dq += torch.einsum("bhts,bshd->bthd", d_attn, k.to(d_attn.dtype))
             dk += torch.einsum("bhts,bthd->bshd", d_attn, q.to(d_attn.dtype))
         # print(torch.cuda.max_memory_allocated()/1024**3)
-        return dq, dk, dv, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None
 
 
 flash_attn_func = _attention.apply

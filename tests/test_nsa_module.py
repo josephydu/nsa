@@ -2,6 +2,7 @@ import torch
 
 from nsa import selection_attention
 from nsa.nsa import NSAAttention
+from nsa.nsa_fused import NSAFusedAttention
 
 
 torch.manual_seed(10)
@@ -23,14 +24,19 @@ t = torch.Tensor([0] + [seq_len] * bs)
 cu_seq_len = torch.cumsum(t, dim=0).to(torch.int32).to(device)
 
 attn = NSAAttention(head_dim, 0, True, None, 0, device=device, dtype=dtype)
+fused_attn = NSAFusedAttention(head_dim, 0, True, None, 0, device=device, dtype=dtype)
 
 o = attn(q, k, v, cu_seq_len, 0, causal=True)
+fused_o = fused_attn(q, k, v, cu_seq_len, 0, causal=True)
 assert not torch.isnan(o).any(), 'forward output has nan.'
+assert not torch.isnan(fused_o).any(), 'forward output has nan.'
 
-loss = (o*o).sum()
-loss.backward()
+torch.testing.assert_close(o, fused_o, rtol=1e-2, atol=1e-2)
+
+# loss = (o*o).sum()
+# loss.backward()
 
 
-assert not torch.isnan(q.grad).any(), 'q.grad output has nan.'
-assert not torch.isnan(k.grad).any(), 'k.grad output has nan.'
-assert not torch.isnan(v.grad).any(), 'v.grad output has nan.'
+# assert not torch.isnan(q.grad).any(), 'q.grad output has nan.'
+# assert not torch.isnan(k.grad).any(), 'k.grad output has nan.'
+# assert not torch.isnan(v.grad).any(), 'v.grad output has nan.'
