@@ -113,6 +113,7 @@ class NSAAttention(nn.Module):
         gating_score = self.gating(q)  # b, t, hq, 3
         # selection and local attention
         score = attn_score.reshape(bs, num_kv_head, -1, *attn_score.shape[-2:]).sum(2)
+        print(score[:10])
         score = score.reshape(-1, *score.shape[2:])
         score = self.pooler(score)
         score = score.reshape(bs, num_kv_head, *score.shape[-2:])  # -> B, H, T1, T2
