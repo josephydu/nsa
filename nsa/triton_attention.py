@@ -546,7 +546,7 @@ class _attention(torch.autograd.Function):
             dq += torch.einsum("bhts,bshd->bthd", d_attn, k.to(d_attn.dtype))
             dk += torch.einsum("bhts,bthd->bshd", d_attn, q.to(d_attn.dtype))
         # print(torch.cuda.max_memory_allocated()/1024**3)
-        return dq, dk, dv, None, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None, None
 
 
 flash_attn_func = _attention.apply
