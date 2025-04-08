@@ -463,8 +463,6 @@ class _attention(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, do, ds):
-        import pdb;
-        pdb.set_trace()
         q, k, v, o, M = ctx.saved_tensors
         q = q.contiguous()
         o = o.contiguous()
