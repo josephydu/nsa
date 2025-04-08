@@ -107,6 +107,7 @@ class NSAFusedAttention(nn.Module):
             self.compression_stride,
             self.compression_block,
             causal,
+            bs,
             self.softmax_scale,
             self.pool_kernel_size,
             self.pool_stride,
@@ -114,8 +115,6 @@ class NSAFusedAttention(nn.Module):
             self.fused
         )
 
-        print(bs)
-        print(num_kv_head)
         # gating
         # selection and local attention
         # score = attn_score.reshape(bs, num_kv_head, -1, *attn_score.shape[-2:]).sum(2)
