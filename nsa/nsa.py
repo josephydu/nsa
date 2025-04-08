@@ -109,7 +109,7 @@ class NSAAttention(nn.Module):
             self.softmax_scale,
         )
 
-        print(attn_score[:1])
+        # print(attn_score[:1])
         # gating
         gating_score = self.gating(q)  # b, t, hq, 3
         # selection and local attention
