@@ -463,6 +463,7 @@ class _attention(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, do, ds):
+        print(f"ds sum: {ds.sum()}")
         q, k, v, o, M = ctx.saved_tensors
         q = q.contiguous()
         o = o.contiguous()
