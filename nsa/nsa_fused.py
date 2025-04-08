@@ -57,6 +57,7 @@ class NSAFusedAttention(nn.Module):
         self.pool_kernel_size = selection_block // compression_stride + 1
         self.pool_padding = compression_block // compression_stride - 2
         self.pool_stride = selection_block // compression_stride
+        self.fused = True
         # self.pooler = torch.nn.AvgPool1d(kernel_size, stride, padding, True)
         self.gating = nn.Linear(head_dim, 3, device=device, dtype=dtype)
 
@@ -110,6 +111,7 @@ class NSAFusedAttention(nn.Module):
             self.pool_kernel_size,
             self.pool_stride,
             self.pool_padding,
+            self.fused
         )
 
         # gating
