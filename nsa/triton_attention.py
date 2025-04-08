@@ -458,7 +458,7 @@ class _attention(torch.autograd.Function):
             num_kv_head = q.shape[2]
             s = s.reshape(bs, num_kv_head, -1, *s.shape[-2:]).sum(2)
             s = s.reshape(-1, *s.shape[2:])
-            s = torch.nn.functional.avg_pool1d(pool_kernel_size, pool_stride, pool_padding, True)
+            s = torch.nn.functional.avg_pool1d(s, pool_kernel_size, pool_stride, pool_padding, True)
             s = s.reshape(bs, num_kv_head, *s.shape[-2:])  # -> B, H, T1, T2
         
         return o, s
