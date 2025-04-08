@@ -114,6 +114,8 @@ class NSAFusedAttention(nn.Module):
             self.fused
         )
 
+        print(bs)
+        print(num_kv_head)
         # gating
         # selection and local attention
         # score = attn_score.reshape(bs, num_kv_head, -1, *attn_score.shape[-2:]).sum(2)
