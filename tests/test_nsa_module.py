@@ -56,3 +56,7 @@ assert not torch.isnan(o_dv).any(), 'v.grad output has nan.'
 assert not torch.isnan(fused_dq).any(), 'q.grad output has nan.'
 assert not torch.isnan(fused_dk).any(), 'k.grad output has nan.'
 assert not torch.isnan(fused_dv).any(), 'v.grad output has nan.'
+
+torch.testing.assert_close(o_dq, fused_dq, rtol=1e-2, atol=1e-2)
+torch.testing.assert_close(o_dk, fused_dk, rtol=1e-2, atol=1e-2)
+torch.testing.assert_close(o_dv, fused_o, rtol=1e-2, atol=1e-2)
