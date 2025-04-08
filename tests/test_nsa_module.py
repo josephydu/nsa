@@ -37,9 +37,22 @@ print('forward test passed.')
 do = torch.randn_like(o)
 o.backward(do)
 
+o_dq, q.grad = q.grad.clone(), None
+o_dk, k.grad = k.grad.clone(), None
+o_dv, v.grad = v.grad.clone(), None
+
+fused_o.backward(do)
+fused_dq, q.grad = q.grad.clone(), None
+fused_dk, k.grad = k.grad.clone(), None
+fused_dv, v.grad = v.grad.clone(), None
 
 
 
-# assert not torch.isnan(q.grad).any(), 'q.grad output has nan.'
-# assert not torch.isnan(k.grad).any(), 'k.grad output has nan.'
-# assert not torch.isnan(v.grad).any(), 'v.grad output has nan.'
+assert not torch.isnan(o_dq).any(), 'q.grad output has nan.'
+assert not torch.isnan(o_dk).any(), 'k.grad output has nan.'
+assert not torch.isnan(o_dv).any(), 'v.grad output has nan.'
+
+
+assert not torch.isnan(fused_dq).any(), 'q.grad output has nan.'
+assert not torch.isnan(fused_dk).any(), 'k.grad output has nan.'
+assert not torch.isnan(fused_dv).any(), 'v.grad output has nan.'
