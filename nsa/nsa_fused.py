@@ -108,13 +108,14 @@ class NSAFusedAttention(nn.Module):
             self.compression_block,
             causal,
             self.softmax_scale,
+            num_kv_head,
             bs,
             self.pool_kernel_size,
             self.pool_stride,
             self.pool_padding,
             self.fused
         )
-
+        
         # gating
         # selection and local attention
         # score = attn_score.reshape(bs, num_kv_head, -1, *attn_score.shape[-2:]).sum(2)
