@@ -36,7 +36,6 @@ torch.testing.assert_close(o, fused_o, rtol=1e-2, atol=1e-2)
 print('forward test passed.')
 do = torch.randn_like(o)
 o.backward(do)
-loss.backward()
 
 
 
