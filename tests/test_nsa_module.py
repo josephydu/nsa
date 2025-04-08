@@ -48,14 +48,14 @@ fused_dv, v.grad = v.grad.clone(), None
 
 
 
-assert not torch.isnan(o_dq).any(), 'q.grad output has nan.'
-assert not torch.isnan(o_dk).any(), 'k.grad output has nan.'
-assert not torch.isnan(o_dv).any(), 'v.grad output has nan.'
+assert not torch.isnan(o_dq).any(), 'o_dq output has nan.'
+assert not torch.isnan(o_dk).any(), 'o_dk output has nan.'
+assert not torch.isnan(o_dv).any(), 'o_dv output has nan.'
 
 
-assert not torch.isnan(fused_dq).any(), 'q.grad output has nan.'
-assert not torch.isnan(fused_dk).any(), 'k.grad output has nan.'
-assert not torch.isnan(fused_dv).any(), 'v.grad output has nan.'
+assert not torch.isnan(fused_dq).any(), 'fused_dq output has nan.'
+assert not torch.isnan(fused_dk).any(), 'fused_dk output has nan.'
+assert not torch.isnan(fused_dv).any(), 'fused_dv output has nan.'
 
 torch.testing.assert_close(o_dq, fused_dq, rtol=1e-2, atol=1e-2)
 torch.testing.assert_close(o_dk, fused_dk, rtol=1e-2, atol=1e-2)
