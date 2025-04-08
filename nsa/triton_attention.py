@@ -407,7 +407,7 @@ def _attn_bwd_only_dq(Q, K, V, sm_scale,  #
 
 class _attention(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, q, k, v, block_stride, block_size, causal, sm_scale, pool_bs=0, pool_kernel_size=0, pool_stride=0, pool_padding=0, fused=False):
+    def forward(ctx, q, k, v, block_stride, block_size, causal, sm_scale, pool_num_kv_head=0, pool_bs=0, pool_kernel_size=0, pool_stride=0, pool_padding=0, fused=False):
         # B, T, H, D
 
         # shape constraints
@@ -454,12 +454,10 @@ class _attention(torch.autograd.Function):
         softmax_kernel[softmax_grid](s, s, s.stride(2), s.stride(2), n_row, n_col, block_size, 4)
         
         if fused:
-            num_kv_head = k.shape[2]
-            print(num_kv_head)
-            s = s.reshape(pool_bs, num_kv_head, -1, *s.shape[-2:]).sum(2)
+            s = s.reshape(pool_bs, pool_num_kv_head, -1, *s.shape[-2:]).sum(2)
             s = s.reshape(-1, *s.shape[2:])
             s = torch.nn.functional.avg_pool1d(s, pool_kernel_size, pool_stride, pool_padding, True)
-            s = s.reshape(pool_bs, num_kv_head, *s.shape[-2:])  # -> B, H, T1, T2
+            s = s.reshape(pool_bs, pool_num_kv_head, *s.shape[-2:])  # -> B, H, T1, T2
         
         return o, s
 
@@ -547,7 +545,7 @@ class _attention(torch.autograd.Function):
             dq += torch.einsum("bhts,bshd->bthd", d_attn, k.to(d_attn.dtype))
             dk += torch.einsum("bhts,bthd->bshd", d_attn, q.to(d_attn.dtype))
         # print(torch.cuda.max_memory_allocated()/1024**3)
-        return dq, dk, dv, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None
 
 
 flash_attn_func = _attention.apply
