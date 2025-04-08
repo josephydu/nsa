@@ -454,7 +454,7 @@ class _attention(torch.autograd.Function):
         softmax_kernel[softmax_grid](s, s, s.stride(2), s.stride(2), n_row, n_col, block_size, 4)
         
         if fused:
-            num_kv_head = q.shape[2]
+            num_kv_head = k.shape[2]
             print(num_kv_head)
             s = s.reshape(pool_bs, num_kv_head, -1, *s.shape[-2:]).sum(2)
             s = s.reshape(-1, *s.shape[2:])
