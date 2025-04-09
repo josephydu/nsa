@@ -532,23 +532,23 @@ class _attention(torch.autograd.Function):
             num_warps=NUM_WARPS,  #
             num_stages=NUM_STAGES  #
         )
-        if ds is not None:
-            # Recompute s
-            s = torch.einsum("bthd, bshd->bhts", q, k) 
-            #print(torch.cuda.max_memory_allocated()/1024**3)
-            softmax_grid = (256, )
-            n_row, n_col, block_size = s.numel()//s.shape[-1], s.shape[-1], triton.next_power_of_2(s.shape[-1])
-            softmax_kernel[softmax_grid](s, s, s.stride(2), s.stride(2), n_row, n_col, block_size, 4)
-            #s = torch.nn.functional.softmax(s, dim=-1)
-            #print(torch.cuda.max_memory_allocated()/1024**3)
+        # if ds is not None:
+        #     # Recompute s
+        #     s = torch.einsum("bthd, bshd->bhts", q, k) 
+        #     #print(torch.cuda.max_memory_allocated()/1024**3)
+        #     softmax_grid = (256, )
+        #     n_row, n_col, block_size = s.numel()//s.shape[-1], s.shape[-1], triton.next_power_of_2(s.shape[-1])
+        #     softmax_kernel[softmax_grid](s, s, s.stride(2), s.stride(2), n_row, n_col, block_size, 4)
+        #     #s = torch.nn.functional.softmax(s, dim=-1)
+        #     #print(torch.cuda.max_memory_allocated()/1024**3)
             
-            # backward softmax
-            #d_attn = torch.empty_like(s)
-            d_attn = s
-            grid = (s.shape[0], s.shape[1], s.shape[2])
-            bwd_attn_mul[grid](s, ds, d_attn, s.shape[1], s.shape[2], s.shape[3], triton.next_power_of_2(s.shape[3]))
-            dq += torch.einsum("bhts,bshd->bthd", d_attn, k.to(d_attn.dtype))
-            dk += torch.einsum("bhts,bthd->bshd", d_attn, q.to(d_attn.dtype))
+        #     # backward softmax
+        #     #d_attn = torch.empty_like(s)
+        #     d_attn = s
+        #     grid = (s.shape[0], s.shape[1], s.shape[2])
+        #     bwd_attn_mul[grid](s, ds, d_attn, s.shape[1], s.shape[2], s.shape[3], triton.next_power_of_2(s.shape[3]))
+        #     dq += torch.einsum("bhts,bshd->bthd", d_attn, k.to(d_attn.dtype))
+        #     dk += torch.einsum("bhts,bthd->bshd", d_attn, q.to(d_attn.dtype))
         # print(torch.cuda.max_memory_allocated()/1024**3)
         return dq, dk, dv, None, None, None, None, None, None, None, None, None, None, None
 
