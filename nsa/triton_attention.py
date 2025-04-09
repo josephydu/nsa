@@ -461,7 +461,9 @@ class _attention(torch.autograd.Function):
             indices = torch.topk(s, select_block_count, dim=3).indices # B, H, T1, S
             indices = indices.transpose(1, 2)
         
-        return o, indices
+            return o, indices
+        else:
+            return o, s
 
     @staticmethod
     def backward(ctx, do, ds):
