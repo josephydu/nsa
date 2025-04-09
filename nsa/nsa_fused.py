@@ -100,7 +100,7 @@ class NSAFusedAttention(nn.Module):
         # compress attention
         ck, cv, compress_cu_kv_len = self.compressor(k, v, cu_seqlens_k, num_q_head//k.shape[1]) # ck/cv: B, T, H*q, D
 
-        cmp_o, score = attn_func(
+        cmp_o, indices = attn_func(
             q,
             ck,
             cv,
@@ -113,6 +113,7 @@ class NSAFusedAttention(nn.Module):
             self.pool_kernel_size,
             self.pool_stride,
             self.pool_padding,
+            self.selected_block_count,
             self.fused
         )
         
@@ -122,8 +123,8 @@ class NSAFusedAttention(nn.Module):
         # score = score.reshape(-1, *score.shape[2:])
         # score = self.pooler(score)
         # score = score.reshape(bs, num_kv_head, *score.shape[-2:])  # -> B, H, T1, T2
-        indices = torch.topk(score, self.selected_block_count, dim=3).indices # B, H, T1, S
-        indices = indices.transpose(1, 2)
+        # indices = torch.topk(score, self.selected_block_count, dim=3).indices # B, H, T1, S
+        # indices = indices.transpose(1, 2)
 
         gating_score = self.gating(q)  # b, t, hq, 3
         k = k.reshape(bs, -1, num_kv_head, head_qk_dim)
