@@ -93,10 +93,10 @@ class NSAAttention(nn.Module):
 
         bs = cu_seqlens_k.numel() - 1
         print("bs: ", bs)
-        print("q.shape[0]: ", q.shape[0])
         num_q_head, head_qk_dim = q.shape[1:]
         num_token, num_kv_head, head_v_dim = v.shape
         q = q.reshape(bs, -1, num_q_head, head_qk_dim)  
+        print("q.shape[0]: ", q.shape[0])
 
         # compress attention
         ck, cv, compress_cu_kv_len = self.compressor(k, v, cu_seqlens_k, num_q_head//k.shape[1]) # ck/cv: B, T, H*q, D
