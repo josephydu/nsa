@@ -92,6 +92,8 @@ class NSAAttention(nn.Module):
         # max_seqlen_k = max_seqlen if max_seqlen_k is None else max_seqlen_k
 
         bs = cu_seqlens_k.numel() - 1
+        print("bs: ", bs)
+        print("q.shape[0]: ", q.shape[0])
         num_q_head, head_qk_dim = q.shape[1:]
         num_token, num_kv_head, head_v_dim = v.shape
         q = q.reshape(bs, -1, num_q_head, head_qk_dim)  
