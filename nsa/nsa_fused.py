@@ -109,7 +109,6 @@ class NSAFusedAttention(nn.Module):
             causal,
             self.softmax_scale,
             num_kv_head,
-            bs,
             self.pool_kernel_size,
             self.pool_stride,
             self.pool_padding,
